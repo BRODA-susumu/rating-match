@@ -29,11 +29,12 @@ input{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1p
 .badge.off{background:#3a1520;color:#ff9aa8;}
 .rowline{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #262c47;font-size:14px;}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
-.tc{border-radius:12px;padding:8px 5px;text-align:center;min-height:64px;background:#141830;border:1px dashed #2a3050;color:#5f6a94;font-size:11px;}
+.tc{border-radius:12px;padding:8px 5px;text-align:center;min-height:64px;background:#141830;border:1px dashed #2a3050;color:#5f6a94;font-size:11px;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
 .tc .no{font-size:17px;font-weight:800;}
 .tc.p{background:#4d3d10;border:1px solid #c98a12;color:#ffe9b0;}
 .tc.o{background:#5a1f2c;border:1px solid #e0405a;color:#ffc9d1;}
 .tc.g{background:#123a28;border:1px solid #19a974;color:#b8f5d8;}
+.tc.x{opacity:0.55;border:1px dashed #e0405a;}
 .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:40;overflow:auto;padding:16px;}
 #mbox{max-width:420px;margin:36px auto;background:#1a1f33;border-radius:16px;padding:18px;}
@@ -111,6 +112,7 @@ function renderList(){
  var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
  h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数">';
+ h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label>';
  h+='<button class="btn" data-act="create">大会を作成</button></div>';
  h+='<div class="label" style="margin:6px 4px;">大会一覧（タップで管理）</div>';
  if(!listCache||listCache.length===0){h+='<div class="card mut center">まだ大会がありません</div>';}
@@ -119,7 +121,7 @@ function renderList(){
    var t=listCache[i];
    h+='<div class="card" data-act="open" data-tid="'+t.id+'" style="cursor:pointer;">';
    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:16px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
-   h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓 ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
+   h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+' ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
    h+='</div>';
   }
  }
@@ -146,7 +148,7 @@ function renderDash(){
  var h='<div class="wrap">';
  h+='<button class="sb" data-act="back-list" style="margin:0 0 10px;">← 大会一覧へ</button>';
  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:17px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
- h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓 ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
+ h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+' ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
  h+='<div class="inline">';
  if(t.status==='active'){
   h+='<button class="btn '+(t.matching_paused?'green':'warn')+'" data-act="pause">'+(t.matching_paused?'募集を再開':'募集を停止')+'</button>';
@@ -155,7 +157,7 @@ function renderDash(){
  h+='<button class="btn gray" data-act="csv">CSV出力</button>';
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
  h+='</div></div>';
- h+='<div class="card"><div class="label">進行ボード（テーブルをタップで操作）</div><div class="grid">';
+ h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div class="label">進行ボード（タップ=操作 / 長押し=使用停止・再開）</div>'+(t.status==='active'?'<span style="white-space:nowrap;"><button class="sb" data-act="tminus">−卓</button><button class="sb" data-act="tplus">＋卓</button></span>':'')+'</div><div class="grid">';
  for(var i=0;i<A.tables.length;i++){
   var tb=A.tables[i];var m=tb.match;var cls='';var inner='';
   if(m){
@@ -163,13 +165,14 @@ function renderDash(){
     var over=Date.parse(m.start_deadline)<(Date.now()+offA);
     cls=over?'o':'p';
    }else{cls='g';}
-   inner='<div class="no">'+tb.no+'</div><div class="nm">'+esc(m.p1)+'</div><div class="nm">'+esc(m.p2)+'</div>';
+   inner='<div class="no">'+tb.no+'</div><div class="nm">'+esc(m.p1)+'</div><div class="nm">'+esc(m.p2)+'</div>'+(tb.disabled?'<div style="font-size:9px;">停止予約</div>':'');
   }else{
-   inner='<div class="no">'+tb.no+'</div><div style="margin-top:12px;">空き</div>';
+   inner='<div class="no">'+tb.no+'</div><div style="margin-top:12px;">'+(tb.disabled?'使用停止':'空き')+'</div>';
   }
-  h+='<div class="tc '+cls+'"'+(m?' data-act="tmod" data-no="'+tb.no+'"':'')+'>'+inner+'</div>';
+  if(tb.disabled){cls+=' x';}
+  h+='<div class="tc '+cls+'" data-no="'+tb.no+'"'+(m?' data-act="tmod"':'')+'>'+inner+'</div>';
  }
- h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中</div></div>';
+ h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中 / 薄赤枠=使用停止</div></div>';
  if(A.queue&&A.queue.length>0){
   h+='<div class="card"><div class="label">待機中</div>';
   for(var i2=0;i2<A.queue.length;i2++){
@@ -279,6 +282,33 @@ async function doCsv(){
  a.click();
  document.body.removeChild(a);
 }
+var lpTimer=null,lpFired=0;
+function lpStart(ev){
+ if(!curTid||!A){return;}
+ var el=ev.target.closest('.tc');
+ if(!el||!el.getAttribute('data-no')){return;}
+ var no=parseInt(el.getAttribute('data-no'),10);
+ clearTimeout(lpTimer);
+ lpTimer=setTimeout(async function(){
+  lpFired=Date.now();
+  if(busy){return;}
+  busy=true;
+  try{
+   var r=await rpc('admin_toggle_table',{tid:curTid,tno:no});
+   toastMsg(r&&r.disabled?('テーブル '+no+' を使用停止にしました（対戦中の場合は終了後から）'):('テーブル '+no+' を再開しました'));
+   await aTick();
+  }catch(e){toastMsg(errMsg(e));}
+  busy=false;
+ },600);
+}
+function lpEnd(){clearTimeout(lpTimer);}
+document.addEventListener('touchstart',lpStart,{passive:true});
+document.addEventListener('touchend',lpEnd);
+document.addEventListener('touchmove',lpEnd,{passive:true});
+document.addEventListener('touchcancel',lpEnd);
+document.addEventListener('mousedown',lpStart);
+document.addEventListener('mouseup',lpEnd);
+document.addEventListener('mouseleave',lpEnd);
 document.addEventListener('click',async function(ev){
  var el=ev.target.closest('[data-act]');
  if(!el||busy){return;}
@@ -300,7 +330,8 @@ document.addEventListener('click',async function(ev){
   else if(act==='recheck'){afterLogin();}
   else if(act==='create'){
    var n=parseInt(val('ctables'),10);
-   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n});
+   var cr=document.getElementById('crated');
+   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n,prated:cr?cr.checked:true});
    toastMsg('大会を作成しました');
    await showList();
   }
@@ -316,7 +347,9 @@ document.addEventListener('click',async function(ev){
     await showList();
    }
   }
-  else if(act==='tmod'){showTmod(parseInt(el.getAttribute('data-no'),10));}
+  else if(act==='tplus'){await rpc('admin_set_tables',{tid:curTid,n:A.tournament.table_count+1});await aTick();}
+  else if(act==='tminus'){await rpc('admin_set_tables',{tid:curTid,n:A.tournament.table_count-1});await aTick();}
+  else if(act==='tmod'){if(Date.now()-lpFired>800){showTmod(parseInt(el.getAttribute('data-no'),10));}}
   else if(act==='fixmod'){showFix(el.getAttribute('data-mid'));}
   else if(act==='pact'){
    var cfm=el.getAttribute('data-cfm');
