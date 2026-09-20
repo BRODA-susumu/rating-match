@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>レーティング対戦</title>
+<style>
+:root{color-scheme:dark;}
+body{margin:0;font-family:system-ui,-apple-system,'Hiragino Sans',sans-serif;background:#0f1220;color:#f2f4ff;}
+.wrap{max-width:480px;margin:0 auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom));}
+.card{background:#1a1f33;border-radius:16px;padding:18px;margin-bottom:14px;}
+.btn{display:block;width:100%;padding:16px;border:0;border-radius:14px;font-size:17px;font-weight:700;color:#fff;background:#3b5bfd;margin-top:12px;}
+.btn:disabled{background:#333a55;color:#8890b0;}
+.btn.gray{background:#2a3050;}
+.btn.red{background:#e0405a;}
+.btn.green{background:#19a974;}
+.sel{outline:3px solid #ffd75e;}
+.label{font-size:12px;color:#9aa3c7;letter-spacing:0.05em;}
+.rate{font-size:40px;font-weight:800;}
+.tableno{font-size:76px;font-weight:900;color:#ffd75e;line-height:1.1;}
+.timer{font-size:54px;font-weight:800;font-variant-numeric:tabular-nums;}
+.staff{background:#e0405a;color:#fff;border-radius:16px;padding:22px;text-align:center;font-size:24px;font-weight:900;margin-bottom:14px;}
+.rowline{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #262c47;font-size:15px;}
+input{width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid #2a3050;background:#12162a;color:#fff;font-size:16px;margin-top:8px;}
+.center{text-align:center;}
+.mut{color:#9aa3c7;font-size:13px;}
+.plus{color:#4be38a;}
+.minus{color:#ff7a8a;}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;background:#2a3050;color:#cdd4f5;vertical-align:middle;}
+.mismatch{background:#5a1f2c;border:1px solid #e0405a;border-radius:12px;padding:12px;color:#ffb3bd;font-size:14px;margin-top:10px;text-align:center;}
+.spin{width:44px;height:44px;border:4px solid #2a3050;border-top-color:#3b5bfd;border-radius:50%;margin:10px auto 16px;animation:sp 1s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg);}}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:#e0405a;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;display:none;z-index:50;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SUPA_URL='https://oebpqvuovmhrdjlkpspj.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYnBxdnVvdm1ocmRqbGtwc3BqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTE1NjEsImV4cCI6MjEwNTQ4NzU2MX0.NZz2opTMAt6pcI-zPSLgAOLXvB5D80qkGcD6Jnj1Brw';
+var FN=SUPA_URL+'/functions/v1/app';
+var sb=window.supabase.createClient(SUPA_URL,ANON);
+var S=null,offset=0,viewLock=null,pollIv=null,tickIv=null,busy=false,authMode='login',pendingTp=null;
+try{pendingTp=new URLSearchParams(location.search).get('tp');}catch(e){}
+function app(){return document.getElementById('app');}
+function esc(s){s=String(s===null||s===undefined?'':s);var o='',i,c;for(i=0;i<s.length;i++){c=s.charAt(i);if(c==='<'){o+='&lt;';}else if(c==='>'){o+='&gt;';}else if(c==='&'){o+='&amp;';}else if(c==='"'){o+='&quot;';}else{o+=c;}}return o;}
+function toastMsg(t){var el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(function(){el.style.display='none';},3500);}
+function errMsg(e){if(!e){return 'エラーが発生しました';}return e.message||String(e);}
+async function rpc(name,args){var r=await sb.rpc(name,args||{});if(r.error){throw r.error;}return r.data;}
+function p2n(n){return (n<10?'0':'')+n;}
+function fmtRemain(ms){var s=Math.max(0,Math.ceil(ms/1000));var m=Math.floor(s/60);return m+':'+p2n(s-m*60);}
+function fmtWait(s){var m=Math.floor(s/60);return m+'分'+p2n(s-m*60)+'秒';}
+function fmtDate(iso){var d=new Date(iso);return (d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+p2n(d.getMinutes());}
+function kindLabel(k){if(k==='win'){return '勝ち';}if(k==='lose'){return '負け';}if(k==='draw'){return '引き分け';}if(k==='noshow_penalty'){return '不戦敗';}if(k==='opponent_noshow'){return '不成立';}if(k==='timeout_penalty'){return '不成立(両者)';}return '中止';}
+function isEditing(){var e=document.activeElement;return !!(e&&e.tagName==='INPUT');}
+async function boot(){var s=await sb.auth.getSession();if(s.data.session){startApp();}else{renderAuth();}}
+sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT'){stopApp();renderAuth();}});
+async function startApp(){
+ if(pendingTp){try{await rpc('join_tournament',{pw:pendingTp});toastMsg('大会に参加しました');}catch(e){toastMsg(errMsg(e));}pendingTp=null;try{history.replaceState(null,'',location.pathname);}catch(e2){}}
+ await poll();
+ if(pollIv){clearInterval(pollIv);}if(tickIv){clearInterval(tickIv);}
+ pollIv=setInterval(poll,2500);tickIv=setInterval(tick,500);
+}
+function stopApp(){clearInterval(pollIv);clearInterval(tickIv);S=null;viewLock=null;}
+async function poll(){try{var d=await rpc('get_state');S=d;offset=Date.parse(d.now)-Date.now();render();}catch(e){}}
+function tick(){
+ if(!S){return;}
+ var el;
+ if(S.match&&S.match.status==='pending_start'){
+  var rem=Date.parse(S.match.start_deadline)-(Date.now()+offset);
+  el=document.getElementById('cd');
+  if(el){el.textContent=fmtRemain(rem);if(rem<=0&&!document.getElementById('staffbox')){render();}}
+ }
+ if(S.queued&&!S.match){
+  var w=Math.max(0,Math.floor((Date.now()+offset-Date.parse(S.queued.since))/1000));
+  el=document.getElementById('wt');if(el){el.textContent=fmtWait(w);}
+  el=document.getElementById('wr');if(el){el.textContent='±'+(100+100*Math.floor(w/30));}
+ }
+}
+function render(){
+ if(!S){return;}
+ if(S.match){viewLock=null;renderMatch(S.match);return;}
+ if(viewLock){return;}
+ if(isEditing()){return;}
+ var lr=S.last_result;
+ if(lr&&!localStorage.getItem('ack-'+lr.id)&&(Date.now()+offset-Date.parse(lr.at))<3600000){renderResult(lr);return;}
+ if(S.queued){renderQueue();return;}
+ renderHome();
+}
+function renderAuth(){
+ var h='<div class="wrap"><div class="card center"><div style="font-size:22px;font-weight:800;">レーティング対戦</div><div class="mut">大会マッチングシステム</div></div>';
+ h+='<div class="card"><div style="display:flex;gap:8px;">';
+ h+='<button class="btn '+(authMode==='login'?'':'gray')+'" style="margin-top:0;" data-act="tab-login">ログイン</button>';
+ h+='<button class="btn '+(authMode==='register'?'':'gray')+'" style="margin-top:0;" data-act="tab-register">新規登録</button></div>';
+ if(authMode==='register'){h+='<input id="nick" placeholder="ニックネーム（20文字まで）">';}
+ h+='<input id="email" type="email" placeholder="メールアドレス">';
+ h+='<input id="pass" type="password" placeholder="パスワード（6文字以上）">';
+ if(authMode==='register'){h+='<button class="btn" data-act="register">登録してはじめる</button><div class="mut" style="margin-top:8px;">ニックネームは登録後、1回だけ変更できます。同じニックネームは使えません。</div>';}
+ else{h+='<button class="btn" data-act="login">ログイン</button>';}
+ h+='</div></div>';
+ app().innerHTML=h;
+}
+function renderHome(){
+ var p=S.profile;var t=S.tournament;
+ var keepEl=document.getElementById('tpw');var keep=keepEl?keepEl.value:'';
+ var h='<div class="wrap">';
+ h+='<div class="card"><div class="label">ニックネーム</div><div style="font-size:20px;font-weight:700;">'+esc(p.nickname)+(p.is_admin?' <span class="badge">主催</span>':'')+'</div>';
+ h+='<div class="label" style="margin-top:12px;">現在レート</div><div class="rate">'+p.rating+'</div></div>';
+ if(t){
+  h+='<div class="card"><div class="label">参加中の大会</div><div style="font-size:17px;font-weight:700;">'+esc(t.name)+'</div>';
+  if(t.matching_paused){h+='<div class="mut" style="margin-top:6px;">現在、対戦募集は停止中です</div>';}
+  h+='</div>';
+ }else{
+  h+='<div class="card"><div class="label">大会に参加</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn" data-act="join">大会に参加する</button><div class="mut" style="margin-top:8px;">大会パスワードを入力するまで対戦募集はできません。</div></div>';
+ }
+ var can=t&&!t.matching_paused;
+ h+='<button class="btn" style="padding:22px;font-size:20px;" data-act="queue"'+(can?'':' disabled')+'>対戦募集</button>';
+ h+='<button class="btn gray" data-act="history">対戦履歴</button>';
+ h+='<button class="btn gray" data-act="ranking">ランキング</button>';
+ h+='<div style="display:flex;gap:8px;">';
+ if(!p.nickname_changed){h+='<button class="btn gray" data-act="nick" style="font-size:14px;">ニックネーム変更</button>';}
+ h+='<button class="btn gray" data-act="logout" style="font-size:14px;">ログアウト</button></div>';
+ h+='</div>';
+ app().innerHTML=h;
+}
+function renderQueue(){
+ var h='<div class="wrap"><div class="card center"><div class="spin"></div><div style="font-size:18px;font-weight:700;">対戦相手を探しています…</div>';
+ h+='<div class="mut" style="margin-top:10px;">待機時間 <span id="wt">0分00秒</span></div>';
+ h+='<div class="mut">許容レート差 <span id="wr">±100</span>（30秒ごとに拡大）</div></div>';
+ h+='<button class="btn red" data-act="cancel">募集をキャンセル</button>';
+ h+='<div class="mut center" style="margin-top:10px;">マッチング成立後のキャンセルはできません。</div></div>';
+ app().innerHTML=h;
+}
+function renderMatch(m){
+ if(m.status==='pending_start'){
+  var rem=Date.parse(m.start_deadline)-(Date.now()+offset);
+  var h='<div class="wrap">';
+  if(rem<=0){h+='<div id="staffbox" class="staff">スタッフをお呼びください<div style="font-size:14px;font-weight:400;margin-top:8px;">時間内に対戦が開始されませんでした</div></div>';}
+  h+='<div class="card center"><div class="label">テーブル番号</div><div class="tableno">'+m.table_no+'</div></div>';
+  h+='<div class="card"><div class="rowline"><span class="mut">対戦相手</span><b>'+esc(m.opponent.nickname)+'</b></div>';
+  h+='<div class="rowline"><span class="mut">相手のレート</span><b>'+m.opponent.rating+'</b></div>';
+  h+='<div class="rowline" style="border-bottom:0;"><span class="mut">あなたのレート</span><b>'+m.my_rating+'</b></div></div>';
+  h+='<div class="card center"><div class="label">対戦開始までの残り時間</div><div class="timer" id="cd">'+fmtRemain(rem)+'</div>';
+  h+='<div class="mut">テーブルに着席し、対戦相手を確認したら<br>両者それぞれ「対戦開始」を押してください</div></div>';
+  if(m.i_started){h+='<button class="btn" disabled>開始済み・相手の操作待ち</button>';}
+  else{h+='<button class="btn green" style="padding:22px;font-size:20px;" data-act="start">対戦開始</button>';}
+  h+='<div class="mut center" style="margin-top:8px;">相手の状態: '+(m.opp_started?'開始済み':'未操作')+'</div>';
+  h+='</div>';
+  app().innerHTML=h;
+  return;
+ }
+ var h2='<div class="wrap"><div class="card"><div class="label">対戦中 — テーブル '+m.table_no+'</div><div style="font-size:17px;font-weight:700;margin-top:4px;">vs '+esc(m.opponent.nickname)+'（'+m.opponent.rating+'）</div></div>';
+ h2+='<div class="card"><div class="center" style="font-weight:700;">対戦が終わったら結果を報告してください</div>';
+ h2+='<button class="btn green'+(m.my_report==='win'?' sel':'')+'" data-act="rep" data-res="win">勝利</button>';
+ h2+='<button class="btn gray'+(m.my_report==='draw'?' sel':'')+'" data-act="rep" data-res="draw">引き分け</button>';
+ h2+='<button class="btn red'+(m.my_report==='lose'?' sel':'')+'" data-act="rep" data-res="lose">敗北</button>';
+ if(m.mismatch){h2+='<div class="mismatch">報告が一致していません。両者で確認して、正しいボタンを押し直してください。一致するまで確定されず、次の募集もできません。解決しない場合はスタッフをお呼びください。</div>';}
+ else if(m.my_report&&!m.opp_reported){h2+='<div class="mut center" style="margin-top:10px;">相手の報告待ちです（押し直し可能）。<br>相手が報告しないままの場合はスタッフをお呼びください。</div>';}
+ else if(!m.my_report&&m.opp_reported){h2+='<div class="mut center" style="margin-top:10px;">相手は報告済みです。あなたの結果を押してください。</div>';}
+ else{h2+='<div class="mut center" style="margin-top:10px;">両者の報告が一致すると自動で確定します。</div>';}
+ h2+='</div></div>';
+ app().innerHTML=h2;
+}
+function renderResult(lr){
+ var title='',body='',cls='';
+ if(lr.kind==='win'){title='勝利！';cls='plus';body='vs '+esc(lr.opponent);}
+ else if(lr.kind==='lose'){title='敗北';cls='minus';body='vs '+esc(lr.opponent);}
+ else if(lr.kind==='draw'){title='引き分け';body='vs '+esc(lr.opponent);}
+ else if(lr.kind==='noshow_penalty'){title='ペナルティ';cls='minus';body='時間以内に対戦開始しなかったため、ペナルティとしてレーティングが下がりました。';}
+ else if(lr.kind==='timeout_penalty'){title='ペナルティ';cls='minus';body='両者が時間内に対戦開始しなかったため、レーティングが下がりました。';}
+ else if(lr.kind==='opponent_noshow'){title='対戦不成立';body='相手が時間内に現れなかったため、この対戦は不成立になりました。あなたのレートは変動しません。すぐに再募集できます。';}
+ else{title='対戦キャンセル';body='主催の操作により、この対戦はキャンセルされました（レート変動なし）。';}
+ var h='<div class="wrap"><div class="card center"><div style="font-size:32px;font-weight:900;" class="'+cls+'">'+title+'</div><div style="margin-top:10px;font-size:14px;color:#cdd4f5;">'+body+'</div>';
+ if(lr.my_delta!==null&&lr.my_delta!==undefined&&lr.kind!=='cancelled'&&lr.kind!=='opponent_noshow'){
+  var d=lr.my_delta;
+  h+='<div style="margin-top:14px;" class="label">レート変動</div><div style="font-size:34px;font-weight:800;" class="'+(d>=0?'plus':'minus')+'">'+(d>=0?'+':'')+d+'</div>';
+ }
+ h+='<div class="label" style="margin-top:10px;">現在レート</div><div class="rate">'+S.profile.rating+'</div></div>';
+ h+='<button class="btn" data-act="ack">戻る</button></div>';
+ app().innerHTML=h;
+}
+async function renderHistory(){
+ viewLock='history';
+ app().innerHTML='<div class="wrap"><div class="card center mut">読み込み中…</div></div>';
+ try{
+  var rows=await rpc('get_history');
+  var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">対戦履歴</div>';
+  if(!rows||rows.length===0){h+='<div class="mut">まだ対戦履歴がありません。</div>';}
+  else{
+   for(var i=0;i<rows.length;i++){
+    var r=rows[i];var d=r.my_delta;var ds=(d===null||d===undefined)?'—':((d>=0?'+':'')+d);
+    h+='<div class="rowline"><span><b>'+kindLabel(r.kind)+'</b> <span class="mut">vs '+esc(r.opponent)+'</span><br><span class="mut" style="font-size:11px;">'+fmtDate(r.at)+' ・ '+esc(r.tournament)+'</span></span><span class="'+(d>=0?'plus':'minus')+'" style="font-weight:700;">'+ds+'</span></div>';
+   }
+  }
+  h+='</div><button class="btn gray" data-act="back">戻る</button></div>';
+  app().innerHTML=h;
+ }catch(e){toastMsg(errMsg(e));viewLock=null;render();}
+}
+async function renderRanking(){
+ viewLock='ranking';
+ app().innerHTML='<div class="wrap"><div class="card center mut">読み込み中…</div></div>';
+ try{
+  var data=await rpc('get_ranking');
+  var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;">ランキング</div><div class="mut" style="margin-bottom:6px;">'+esc(data.tournament)+'</div>';
+  var rows=data.rows||[];
+  if(rows.length===0){h+='<div class="mut">まだ参加者がいません。</div>';}
+  for(var i=0;i<rows.length;i++){
+   var r=rows[i];
+   h+='<div class="rowline"'+(r.me?' style="background:#232a4a;border-radius:8px;padding-left:8px;padding-right:8px;"':'')+'><span><b style="display:inline-block;width:34px;">'+r.rank+'位</b> '+esc(r.nickname)+(r.me?' <span class="badge">自分</span>':'')+'</span><b>'+r.rating+'</b></div>';
+  }
+  h+='</div><button class="btn gray" data-act="back">戻る</button></div>';
+  app().innerHTML=h;
+ }catch(e){toastMsg(errMsg(e));viewLock=null;render();}
+}
+function val(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+document.addEventListener('click',async function(ev){
+ var el=ev.target.closest('[data-act]');
+ if(!el||busy){return;}
+ var act=el.getAttribute('data-act');
+ busy=true;
+ try{
+  if(act==='tab-login'){authMode='login';renderAuth();}
+  else if(act==='tab-register'){authMode='register';renderAuth();}
+  else if(act==='login'){
+   var r=await sb.auth.signInWithPassword({email:val('email'),password:val('pass')});
+   if(r.error){toastMsg('ログインに失敗しました。メールアドレスとパスワードを確認してください');}
+   else{startApp();}
+  }
+  else if(act==='register'){
+   var em=val('email'),pw=val('pass'),nk=val('nick');
+   var res=await fetch(FN+'/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:pw,nickname:nk})});
+   var j=await res.json();
+   if(!res.ok){toastMsg(j.error||'登録に失敗しました');}
+   else{
+    var r2=await sb.auth.signInWithPassword({email:em,password:pw});
+    if(r2.error){toastMsg('登録は完了しました。ログインしてください');authMode='login';renderAuth();}
+    else{startApp();}
+   }
+  }
+  else if(act==='join'){await rpc('join_tournament',{pw:val('tpw')});toastMsg('大会に参加しました');await poll();}
+  else if(act==='queue'){await rpc('enqueue');await poll();}
+  else if(act==='cancel'){await rpc('cancel_queue');await poll();}
+  else if(act==='start'){await rpc('press_start',{mid:S.match.id});await poll();}
+  else if(act==='rep'){await rpc('report_result',{mid:S.match.id,rep:el.getAttribute('data-res')});await poll();}
+  else if(act==='ack'){localStorage.setItem('ack-'+S.last_result.id,'1');render();}
+  else if(act==='history'){await renderHistory();}
+  else if(act==='ranking'){await renderRanking();}
+  else if(act==='back'){viewLock=null;render();}
+  else if(act==='nick'){
+   var n=prompt('新しいニックネーム（変更できるのは1回だけです）');
+   if(n){await rpc('change_nickname',{newnick:n});toastMsg('ニックネームを変更しました');await poll();}
+  }
+  else if(act==='logout'){await sb.auth.signOut();}
+ }catch(e){toastMsg(errMsg(e));}
+ busy=false;
+});
+boot();
+</script>
+</body>
+</html>
