@@ -109,7 +109,7 @@ async function showList(){
  renderList();
 }
 function renderList(){
- var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div></div>';
+ var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><button class="btn gray" data-act="rateinfo" style="margin-top:12px;">レート計算の仕組み</button></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
  h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数">';
  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label>';
@@ -155,6 +155,7 @@ function renderDash(){
   h+='<button class="btn gray" data-act="qr">参加QR</button>';
  }
  h+='<button class="btn gray" data-act="csv">CSV出力</button>';
+ h+='<button class="btn gray" data-act="rateinfo">レート計算</button>';
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
  h+='</div></div>';
  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div class="label">進行ボード（タップ=操作 / 長押し=使用停止・再開）</div>'+(t.status==='active'?'<span style="white-space:nowrap;"><button class="sb" data-act="tminus">−卓</button><button class="sb" data-act="tplus">＋卓</button></span>':'')+'</div><div class="grid">';
@@ -252,6 +253,22 @@ function showFix(mid){
  h+='<button class="btn gray" data-act="mclose">閉じる</button>';
  showModal(h);
 }
+function showRateInfo(){
+ var h='<div style="font-weight:800;font-size:16px;">レート計算の仕組み</div>';
+ h+='<div class="mut" style="margin-top:8px;">イロレーティング方式（K=40）。全員2000からスタートし、勝敗と相手とのレート差で増減が決まります。</div>';
+ h+='<div style="margin-top:10px;font-size:14px;background:#12162a;border-radius:10px;padding:10px;">変動 ＝ 40 ×（結果 − 期待勝率）<br><span class="mut" style="font-size:12px;">結果: 勝ち=1 / 引き分け=0.5 / 負け=0<br>期待勝率 = 1 ÷ ( 1 + 10^((相手レート−自分レート)÷400) )</span></div>';
+ h+='<div class="mut" style="margin-top:10px;">自分から見た増減の目安（端数は四捨五入）:</div>';
+ h+='<table style="width:100%;margin-top:6px;border-collapse:collapse;font-size:13px;">';
+ h+='<tr style="color:#9aa3c7;font-size:11px;"><td style="padding:5px 2px;">相手とのレート差</td><td class="center">勝ち</td><td class="center">負け</td><td class="center">引き分け</td></tr>';
+ var rows=[['同じ','+20','−20','±0'],['相手が100格上','+26','−14','+6'],['相手が200格上','+30','−10','+10'],['相手が400格上','+36','−4','+16'],['相手が100格下','+14','−26','−6'],['相手が200格下','+10','−30','−10'],['相手が400格下','+4','−36','−16']];
+ for(var i=0;i<rows.length;i++){
+  h+='<tr style="border-top:1px solid #262c47;"><td style="padding:6px 2px;">'+rows[i][0]+'</td><td class="center">'+rows[i][1]+'</td><td class="center">'+rows[i][2]+'</td><td class="center">'+rows[i][3]+'</td></tr>';
+ }
+ h+='</table>';
+ h+='<div class="mut" style="margin-top:10px;font-size:12px;">・格上に勝つほど大きく増え、格下に負けるほど大きく減ります<br>・不戦敗（時間内に開始しなかった側）は「その相手に負けた場合」と同じだけ減少。来ていた側は変動なし<br>・両者とも時間内に開始しなかった場合は、両者とも負け相当の減少<br>・交流会モードの大会ではレートは変動しません</div>';
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
 function showQr(){
  var pw=A.tournament.password;
  var url=playerUrl()+'?tp='+encodeURIComponent(pw);
@@ -339,6 +356,7 @@ document.addEventListener('click',async function(ev){
   else if(act==='back-list'){await showList();}
   else if(act==='pause'){await rpc('admin_pause',{tid:curTid,p:!A.tournament.matching_paused});await aTick();}
   else if(act==='qr'){showQr();}
+  else if(act==='rateinfo'){showRateInfo();}
   else if(act==='csv'){await doCsv();}
   else if(act==='end'){
    if(confirm('大会を終了しますか？終了すると参加・マッチングができなくなります。')){
