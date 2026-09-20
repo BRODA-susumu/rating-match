@@ -27,6 +27,7 @@ input{width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1p
 .plus{color:#4be38a;}
 .minus{color:#ff7a8a;}
 .badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;background:#2a3050;color:#cdd4f5;vertical-align:middle;}
+.sb{padding:8px 12px;border-radius:99px;border:0;font-size:12px;font-weight:700;color:#cdd4f5;background:#2a3050;}
 .mismatch{background:#5a1f2c;border:1px solid #e0405a;border-radius:12px;padding:12px;color:#ffb3bd;font-size:14px;margin-top:10px;text-align:center;}
 .spin{width:44px;height:44px;border:4px solid #2a3050;border-top-color:#3b5bfd;border-radius:50%;margin:10px auto 16px;animation:sp 1s linear infinite;}
 @keyframes sp{to{transform:rotate(360deg);}}
@@ -43,6 +44,7 @@ var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var FN=SUPA_URL+'/functions/v1/app';
 var sb=window.supabase.createClient(SUPA_URL,ANON);
 var S=null,offset=0,viewLock=null,pollIv=null,tickIv=null,busy=false,authMode='login',pendingTp=null;
+var histRows=null,histFilter='all';
 try{pendingTp=new URLSearchParams(location.search).get('tp');}catch(e){}
 function app(){return document.getElementById('app');}
 function esc(s){s=String(s===null||s===undefined?'':s);var o='',i,c;for(i=0;i<s.length;i++){c=s.charAt(i);if(c==='<'){o+='&lt;';}else if(c==='>'){o+='&gt;';}else if(c==='&'){o+='&amp;';}else if(c==='"'){o+='&quot;';}else{o+=c;}}return o;}
@@ -97,6 +99,7 @@ function renderAuth(){
  if(authMode==='register'){h+='<input id="nick" placeholder="ニックネーム（20文字まで）">';}
  h+='<input id="email" type="email" placeholder="メールアドレス">';
  h+='<input id="pass" type="password" placeholder="パスワード（6文字以上）">';
+ h+='<input id="tpw0" placeholder="大会パスワード（任意・あとからでも入力できます）">';
  if(authMode==='register'){h+='<button class="btn" data-act="register">登録してはじめる</button><div class="mut" style="margin-top:8px;">ニックネームは登録後、1回だけ変更できます。同じニックネームは使えません。</div>';}
  else{h+='<button class="btn" data-act="login">ログイン</button>';}
  h+='</div></div>';
@@ -110,15 +113,16 @@ function renderHome(){
  h+='<div class="label" style="margin-top:12px;">現在レート</div><div class="rate">'+p.rating+'</div></div>';
  if(t){
   h+='<div class="card"><div class="label">参加中の大会</div><div style="font-size:17px;font-weight:700;">'+esc(t.name)+'</div>';
+  if(t.rated===false){h+='<div class="mut" style="margin-top:6px;">交流会モード（レート変動なし）</div>';}
   if(t.matching_paused){h+='<div class="mut" style="margin-top:6px;">現在、対戦募集は停止中です</div>';}
   h+='</div>';
  }else{
   h+='<div class="card"><div class="label">大会に参加</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn" data-act="join">大会に参加する</button><div class="mut" style="margin-top:8px;">大会パスワードを入力するまで対戦募集はできません。</div></div>';
  }
  var can=t&&!t.matching_paused;
- h+='<button class="btn" style="padding:22px;font-size:20px;" data-act="queue"'+(can?'':' disabled')+'>対戦募集</button>';
+ if(t){h+='<button class="btn" style="padding:22px;font-size:20px;" data-act="queue"'+(can?'':' disabled')+'>対戦募集</button>';}
  h+='<button class="btn gray" data-act="history">対戦履歴</button>';
- h+='<button class="btn gray" data-act="ranking">ランキング</button>';
+ if(t){h+='<button class="btn gray" data-act="ranking">ランキング</button>';}
  h+='<div style="display:flex;gap:8px;">';
  if(!p.nickname_changed){h+='<button class="btn gray" data-act="nick" style="font-size:14px;">ニックネーム変更</button>';}
  h+='<button class="btn gray" data-act="logout" style="font-size:14px;">ログアウト</button></div>';
@@ -165,15 +169,16 @@ function renderMatch(m){
 }
 function renderResult(lr){
  var title='',body='',cls='';
+ var unrated=(lr.rated===false);
  if(lr.kind==='win'){title='勝利！';cls='plus';body='vs '+esc(lr.opponent);}
  else if(lr.kind==='lose'){title='敗北';cls='minus';body='vs '+esc(lr.opponent);}
  else if(lr.kind==='draw'){title='引き分け';body='vs '+esc(lr.opponent);}
- else if(lr.kind==='noshow_penalty'){title='ペナルティ';cls='minus';body='時間以内に対戦開始しなかったため、ペナルティとしてレーティングが下がりました。';}
- else if(lr.kind==='timeout_penalty'){title='ペナルティ';cls='minus';body='両者が時間内に対戦開始しなかったため、レーティングが下がりました。';}
+ else if(lr.kind==='noshow_penalty'){title=unrated?'不戦敗':'ペナルティ';cls='minus';body=unrated?'時間以内に対戦開始しなかったため、不戦敗となりました。':'時間以内に対戦開始しなかったため、ペナルティとしてレーティングが下がりました。';}
+ else if(lr.kind==='timeout_penalty'){title=unrated?'対戦不成立':'ペナルティ';cls='minus';body=unrated?'両者が時間内に対戦開始しませんでした。':'両者が時間内に対戦開始しなかったため、レーティングが下がりました。';}
  else if(lr.kind==='opponent_noshow'){title='対戦不成立';body='相手が時間内に現れなかったため、この対戦は不成立になりました。あなたのレートは変動しません。すぐに再募集できます。';}
  else{title='対戦キャンセル';body='主催の操作により、この対戦はキャンセルされました（レート変動なし）。';}
  var h='<div class="wrap"><div class="card center"><div style="font-size:32px;font-weight:900;" class="'+cls+'">'+title+'</div><div style="margin-top:10px;font-size:14px;color:#cdd4f5;">'+body+'</div>';
- if(lr.my_delta!==null&&lr.my_delta!==undefined&&lr.kind!=='cancelled'&&lr.kind!=='opponent_noshow'){
+ if(!unrated&&lr.my_delta!==null&&lr.my_delta!==undefined&&lr.kind!=='cancelled'&&lr.kind!=='opponent_noshow'){
   var d=lr.my_delta;
   h+='<div style="margin-top:14px;" class="label">レート変動</div><div style="font-size:34px;font-weight:800;" class="'+(d>=0?'plus':'minus')+'">'+(d>=0?'+':'')+d+'</div>';
  }
@@ -185,18 +190,37 @@ async function renderHistory(){
  viewLock='history';
  app().innerHTML='<div class="wrap"><div class="card center mut">読み込み中…</div></div>';
  try{
-  var rows=await rpc('get_history');
-  var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">対戦履歴</div>';
-  if(!rows||rows.length===0){h+='<div class="mut">まだ対戦履歴がありません。</div>';}
-  else{
-   for(var i=0;i<rows.length;i++){
-    var r=rows[i];var d=r.my_delta;var ds=(d===null||d===undefined)?'—':((d>=0?'+':'')+d);
-    h+='<div class="rowline"><span><b>'+kindLabel(r.kind)+'</b> <span class="mut">vs '+esc(r.opponent)+'</span><br><span class="mut" style="font-size:11px;">'+fmtDate(r.at)+' ・ '+esc(r.tournament)+'</span></span><span class="'+(d>=0?'plus':'minus')+'" style="font-weight:700;">'+ds+'</span></div>';
-   }
-  }
-  h+='</div><button class="btn gray" data-act="back">戻る</button></div>';
-  app().innerHTML=h;
+  histRows=await rpc('get_history');
+  histFilter='all';
+  drawHistory();
  }catch(e){toastMsg(errMsg(e));viewLock=null;render();}
+}
+function drawHistory(){
+ var rows=histRows||[];
+ var names=[];
+ for(var i=0;i<rows.length;i++){if(names.indexOf(rows[i].tournament)<0){names.push(rows[i].tournament);}}
+ var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">対戦履歴</div>';
+ if(names.length>1){
+  h+='<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;">';
+  h+='<button class="sb" style="'+(histFilter==='all'?'background:#3b5bfd;color:#fff;':'')+'white-space:nowrap;" data-act="histflt" data-tn="all">すべて</button>';
+  for(var j=0;j<names.length;j++){
+   h+='<button class="sb" style="'+(histFilter===names[j]?'background:#3b5bfd;color:#fff;':'')+'white-space:nowrap;" data-act="histflt" data-tn="'+esc(names[j])+'">'+esc(names[j])+'</button>';
+  }
+  h+='</div>';
+ }
+ var shown=0;
+ for(var k=0;k<rows.length;k++){
+  var r=rows[k];
+  if(histFilter!=='all'&&r.tournament!==histFilter){continue;}
+  shown++;
+  var d=r.my_delta;var ds=(d===null||d===undefined)?'—':((d>=0?'+':'')+d);
+  var aft=(r.my_after===null||r.my_after===undefined)?'':('→ '+r.my_after);
+  if(r.rated===false){ds='交流会';}
+  h+='<div class="rowline"><span><b>'+kindLabel(r.kind)+'</b> <span class="mut">vs '+esc(r.opponent)+'</span><br><span class="mut" style="font-size:11px;">'+fmtDate(r.at)+' ・ '+esc(r.tournament)+'</span></span><span style="text-align:right;"><span class="'+(r.rated===false?'mut':(d>=0?'plus':'minus'))+'" style="font-weight:700;font-size:13px;">'+ds+'</span><br><span class="mut" style="font-size:11px;">'+(r.rated===false?'':aft)+'</span></span></div>';
+ }
+ if(shown===0){h+='<div class="mut">まだ対戦履歴がありません。</div>';}
+ h+='</div><button class="btn gray" data-act="back">戻る</button></div>';
+ app().innerHTML=h;
 }
 async function renderRanking(){
  viewLock='ranking';
@@ -224,19 +248,20 @@ document.addEventListener('click',async function(ev){
   if(act==='tab-login'){authMode='login';renderAuth();}
   else if(act==='tab-register'){authMode='register';renderAuth();}
   else if(act==='login'){
+   var tp0=val('tpw0');
    var r=await sb.auth.signInWithPassword({email:val('email'),password:val('pass')});
    if(r.error){toastMsg('ログインに失敗しました。メールアドレスとパスワードを確認してください');}
-   else{startApp();}
+   else{if(tp0){pendingTp=tp0;}startApp();}
   }
   else if(act==='register'){
-   var em=val('email'),pw=val('pass'),nk=val('nick');
+   var em=val('email'),pw=val('pass'),nk=val('nick'),tp1=val('tpw0');
    var res=await fetch(FN+'/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:pw,nickname:nk})});
    var j=await res.json();
    if(!res.ok){toastMsg(j.error||'登録に失敗しました');}
    else{
     var r2=await sb.auth.signInWithPassword({email:em,password:pw});
     if(r2.error){toastMsg('登録は完了しました。ログインしてください');authMode='login';renderAuth();}
-    else{startApp();}
+    else{if(tp1){pendingTp=tp1;}startApp();}
    }
   }
   else if(act==='join'){await rpc('join_tournament',{pw:val('tpw')});toastMsg('大会に参加しました');await poll();}
@@ -247,6 +272,7 @@ document.addEventListener('click',async function(ev){
   else if(act==='ack'){localStorage.setItem('ack-'+S.last_result.id,'1');render();}
   else if(act==='history'){await renderHistory();}
   else if(act==='ranking'){await renderRanking();}
+  else if(act==='histflt'){histFilter=el.getAttribute('data-tn');drawHistory();}
   else if(act==='back'){viewLock=null;render();}
   else if(act==='nick'){
    var n=prompt('新しいニックネーム（変更できるのは1回だけです）');
