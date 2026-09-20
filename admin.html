@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>主催管理 - レーティング対戦</title>
+<style>
+:root{color-scheme:dark;}
+body{margin:0;font-family:system-ui,-apple-system,'Hiragino Sans',sans-serif;background:#0f1220;color:#f2f4ff;}
+.wrap{max-width:520px;margin:0 auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom));}
+.card{background:#1a1f33;border-radius:16px;padding:16px;margin-bottom:14px;}
+.btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;font-size:15px;font-weight:700;color:#fff;background:#3b5bfd;margin-top:10px;}
+.btn.gray{background:#2a3050;}
+.btn.red{background:#e0405a;}
+.btn.green{background:#19a974;}
+.btn.warn{background:#c98a12;}
+.inline{display:flex;gap:8px;flex-wrap:wrap;}
+.inline .btn{flex:1;margin-top:8px;padding:12px;font-size:13px;min-width:100px;}
+.sb{padding:7px 10px;border-radius:8px;border:0;font-size:12px;font-weight:700;color:#fff;background:#2a3050;margin-left:6px;}
+.sb.red{background:#e0405a;}
+.label{font-size:12px;color:#9aa3c7;letter-spacing:0.05em;}
+input{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #2a3050;background:#12162a;color:#fff;font-size:16px;margin-top:8px;}
+.center{text-align:center;}
+.mut{color:#9aa3c7;font-size:13px;}
+.plus{color:#4be38a;}
+.minus{color:#ff7a8a;}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;background:#2a3050;color:#cdd4f5;vertical-align:middle;}
+.badge.on{background:#123a28;color:#7de8b6;}
+.badge.off{background:#3a1520;color:#ff9aa8;}
+.rowline{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #262c47;font-size:14px;}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.tc{border-radius:12px;padding:8px 5px;text-align:center;min-height:64px;background:#141830;border:1px dashed #2a3050;color:#5f6a94;font-size:11px;}
+.tc .no{font-size:17px;font-weight:800;}
+.tc.p{background:#4d3d10;border:1px solid #c98a12;color:#ffe9b0;}
+.tc.o{background:#5a1f2c;border:1px solid #e0405a;color:#ffc9d1;}
+.tc.g{background:#123a28;border:1px solid #19a974;color:#b8f5d8;}
+.nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:40;overflow:auto;padding:16px;}
+#mbox{max-width:420px;margin:36px auto;background:#1a1f33;border-radius:16px;padding:18px;}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:#e0405a;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;display:none;z-index:60;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal"><div id="mbox"></div></div>
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+var SUPA_URL='https://oebpqvuovmhrdjlkpspj.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYnBxdnVvdm1ocmRqbGtwc3BqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTE1NjEsImV4cCI6MjEwNTQ4NzU2MX0.NZz2opTMAt6pcI-zPSLgAOLXvB5D80qkGcD6Jnj1Brw';
+var FN=SUPA_URL+'/functions/v1/app';
+var sb=window.supabase.createClient(SUPA_URL,ANON);
+var A=null,ME=null,curTid=null,offA=0,aIv=null,listCache=[],busy=false;
+function playerUrl(){
+ var u=location.origin+location.pathname;
+ u=u.split('admin.html').join('index.html');
+ return u;
+}
+function app(){return document.getElementById('app');}
+function esc(s){s=String(s===null||s===undefined?'':s);var o='',i,c;for(i=0;i<s.length;i++){c=s.charAt(i);if(c==='<'){o+='&lt;';}else if(c==='>'){o+='&gt;';}else if(c==='&'){o+='&amp;';}else if(c==='"'){o+='&quot;';}else{o+=c;}}return o;}
+function toastMsg(t){var el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(function(){el.style.display='none';},4000);}
+function errMsg(e){if(!e){return 'エラーが発生しました';}return e.message||String(e);}
+async function rpc(name,args){var r=await sb.rpc(name,args||{});if(r.error){throw r.error;}return r.data;}
+function val(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function modalOpen(){return document.getElementById('modal').style.display==='block';}
+function showModal(h){document.getElementById('mbox').innerHTML=h;document.getElementById('modal').style.display='block';}
+function hideModal(){document.getElementById('modal').style.display='none';}
+function isEditing(){var e=document.activeElement;return !!(e&&e.tagName==='INPUT');}
+function repLabel(r){if(r==='win'){return '勝利報告';}if(r==='lose'){return '敗北報告';}if(r==='draw'){return '引き分け報告';}return '未報告';}
+function resultText(r,p1,p2){
+ if(r==='p1_win'){return esc(p1)+' の勝ち';}
+ if(r==='p2_win'){return esc(p2)+' の勝ち';}
+ if(r==='draw'){return '引き分け';}
+ if(r==='p1_noshow'){return esc(p1)+' 不戦敗';}
+ if(r==='p2_noshow'){return esc(p2)+' 不戦敗';}
+ if(r==='both_timeout'){return '両者ペナルティ';}
+ return 'キャンセル';
+}
+async function boot(){var s=await sb.auth.getSession();if(s.data.session){afterLogin();}else{renderAuth();}}
+sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT'){clearInterval(aIv);A=null;ME=null;curTid=null;renderAuth();}});
+async function afterLogin(){
+ try{
+  var st=await rpc('get_state');
+  ME=st.profile;
+  if(!ME.is_admin){renderClaim();return;}
+  await showList();
+ }catch(e){toastMsg(errMsg(e));renderAuth();}
+}
+function renderAuth(){
+ var h='<div class="wrap"><div class="card center"><div style="font-size:22px;font-weight:800;">主催管理</div><div class="mut">レーティング対戦システム</div></div>';
+ h+='<div class="card"><input id="email" type="email" placeholder="メールアドレス"><input id="pass" type="password" placeholder="パスワード">';
+ h+='<button class="btn" data-act="login">ログイン</button>';
+ h+='<div class="mut" style="margin-top:10px;">アカウントをまだ持っていない場合は、先に<a href="index.html" style="color:#8fa4ff;">参加者ページ</a>で登録してください。</div></div></div>';
+ app().innerHTML=h;
+}
+function renderClaim(){
+ var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;">管理者権限がありません</div>';
+ h+='<div class="mut" style="margin-top:8px;">管理者登録キーを持っている場合は入力してください。または既存の主催者に権限付与を依頼してください。</div>';
+ h+='<input id="akey" placeholder="管理者登録キー"><button class="btn" data-act="claim">管理者として登録</button>';
+ h+='<button class="btn gray" data-act="recheck">権限を再確認</button>';
+ h+='<button class="btn gray" data-act="logout">ログアウト</button></div></div>';
+ app().innerHTML=h;
+}
+async function showList(){
+ clearInterval(aIv);curTid=null;A=null;
+ listCache=await rpc('admin_list_tournaments');
+ renderList();
+}
+function renderList(){
+ var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div></div>';
+ h+='<div class="card"><div class="label">新しい大会を作成</div>';
+ h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数">';
+ h+='<button class="btn" data-act="create">大会を作成</button></div>';
+ h+='<div class="label" style="margin:6px 4px;">大会一覧（タップで管理）</div>';
+ if(!listCache||listCache.length===0){h+='<div class="card mut center">まだ大会がありません</div>';}
+ else{
+  for(var i=0;i<listCache.length;i++){
+   var t=listCache[i];
+   h+='<div class="card" data-act="open" data-tid="'+t.id+'" style="cursor:pointer;">';
+   h+='<div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:16px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
+   h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓 ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
+   h+='</div>';
+  }
+ }
+ h+='</div>';
+ app().innerHTML=h;
+}
+async function openDash(tid){
+ curTid=tid;
+ await aTick();
+ clearInterval(aIv);
+ aIv=setInterval(aTick,3000);
+}
+async function aTick(){
+ if(!curTid){return;}
+ try{
+  A=await rpc('admin_state',{tid:curTid});
+  offA=Date.parse(A.now)-Date.now();
+  if(!modalOpen()&&!isEditing()){renderDash();}
+ }catch(e){}
+}
+function renderDash(){
+ if(!A){return;}
+ var t=A.tournament;
+ var h='<div class="wrap">';
+ h+='<button class="sb" data-act="back-list" style="margin:0 0 10px;">← 大会一覧へ</button>';
+ h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:17px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
+ h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓 ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
+ h+='<div class="inline">';
+ if(t.status==='active'){
+  h+='<button class="btn '+(t.matching_paused?'green':'warn')+'" data-act="pause">'+(t.matching_paused?'募集を再開':'募集を停止')+'</button>';
+  h+='<button class="btn gray" data-act="qr">参加QR</button>';
+ }
+ h+='<button class="btn gray" data-act="csv">CSV出力</button>';
+ if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
+ h+='</div></div>';
+ h+='<div class="card"><div class="label">進行ボード（テーブルをタップで操作）</div><div class="grid">';
+ for(var i=0;i<A.tables.length;i++){
+  var tb=A.tables[i];var m=tb.match;var cls='';var inner='';
+  if(m){
+   if(m.status==='pending_start'){
+    var over=Date.parse(m.start_deadline)<(Date.now()+offA);
+    cls=over?'o':'p';
+   }else{cls='g';}
+   inner='<div class="no">'+tb.no+'</div><div class="nm">'+esc(m.p1)+'</div><div class="nm">'+esc(m.p2)+'</div>';
+  }else{
+   inner='<div class="no">'+tb.no+'</div><div style="margin-top:12px;">空き</div>';
+  }
+  h+='<div class="tc '+cls+'"'+(m?' data-act="tmod" data-no="'+tb.no+'"':'')+'>'+inner+'</div>';
+ }
+ h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中</div></div>';
+ if(A.queue&&A.queue.length>0){
+  h+='<div class="card"><div class="label">待機中</div>';
+  for(var i2=0;i2<A.queue.length;i2++){
+   var q=A.queue[i2];
+   h+='<div class="rowline"><span>'+esc(q.nickname)+' <span class="mut">('+q.rating+')</span></span><span class="mut">'+q.wait_sec+'秒</span></div>';
+  }
+  h+='</div>';
+ }
+ h+='<div class="card"><div class="label">最近の結果（タップで修正）</div>';
+ if(!A.recent||A.recent.length===0){h+='<div class="mut" style="margin-top:6px;">まだ結果がありません</div>';}
+ else{
+  for(var i3=0;i3<A.recent.length;i3++){
+   var rr=A.recent[i3];
+   h+='<div class="rowline" data-act="fixmod" data-mid="'+rr.id+'" style="cursor:pointer;"><span>T'+rr.table_no+' <span class="mut">'+esc(rr.p1)+' vs '+esc(rr.p2)+'</span><br><b style="font-size:13px;">'+resultText(rr.result,rr.p1,rr.p2)+'</b></span><span class="mut" style="font-size:12px;">'+(rr.p1_delta>=0?'+':'')+rr.p1_delta+' / '+(rr.p2_delta>=0?'+':'')+rr.p2_delta+'</span></div>';
+  }
+ }
+ h+='</div>';
+ h+='<div class="card"><div class="label">参加者</div>';
+ if(!A.participants||A.participants.length===0){h+='<div class="mut" style="margin-top:6px;">まだ参加者がいません</div>';}
+ else{
+  for(var i4=0;i4<A.participants.length;i4++){
+   var pp=A.participants[i4];
+   h+='<div class="rowline"><span>'+esc(pp.nickname)+' <b>'+pp.rating+'</b>'+(pp.kicked?' <span class="badge off">退出済</span>':'')+'</span><span>';
+   h+='<button class="sb" data-act="adj" data-nick="'+esc(pp.nickname)+'">レート修正</button>';
+   if(!pp.kicked&&t.status==='active'){h+='<button class="sb red" data-act="kick" data-uid="'+pp.id+'" data-nick="'+esc(pp.nickname)+'">退出</button>';}
+   h+='</span></div>';
+  }
+ }
+ h+='</div>';
+ h+='<div class="card"><div class="label">主催権限の管理</div><div class="inline">';
+ h+='<button class="btn gray" data-act="grant1">権限を付与</button><button class="btn gray" data-act="grant0">権限を解除</button></div>';
+ h+='<div class="mut" style="margin-top:8px;">対象のニックネームを入力して操作します。</div></div>';
+ h+='</div>';
+ app().innerHTML=h;
+}
+function findTableMatch(no){
+ for(var i=0;i<A.tables.length;i++){if(A.tables[i].no===no){return A.tables[i].match;}}
+ return null;
+}
+function showTmod(no){
+ var m=findTableMatch(no);
+ if(!m){return;}
+ var h='<div style="font-weight:800;font-size:16px;">テーブル '+no+'</div>';
+ if(m.status==='pending_start'){
+  h+='<div class="mut" style="margin-top:6px;">開始待ち</div>';
+  h+='<div class="rowline"><span>'+esc(m.p1)+'</span><span class="mut">'+(m.p1_started?'開始済':'未操作')+'</span></div>';
+  h+='<div class="rowline"><span>'+esc(m.p2)+'</span><span class="mut">'+(m.p2_started?'開始済':'未操作')+'</span></div>';
+  h+='<button class="btn green" data-act="pact" data-action="force_start" data-mid="'+m.id+'">試合スタート（強制開始）</button>';
+  h+='<button class="btn warn" data-act="pact" data-action="noshow_p1" data-mid="'+m.id+'" data-cfm="「'+esc(m.p1)+'」を不戦敗にします。本人のレートが下がります。よろしいですか？">'+esc(m.p1)+' が来なかった（不戦敗）</button>';
+  h+='<button class="btn warn" data-act="pact" data-action="noshow_p2" data-mid="'+m.id+'" data-cfm="「'+esc(m.p2)+'」を不戦敗にします。本人のレートが下がります。よろしいですか？">'+esc(m.p2)+' が来なかった（不戦敗）</button>';
+  h+='<button class="btn warn" data-act="pact" data-action="both_timeout" data-mid="'+m.id+'" data-cfm="両者にペナルティを与えます。両者のレートが下がります。よろしいですか？">両者ペナルティ</button>';
+  h+='<button class="btn gray" data-act="pact" data-action="cancel" data-mid="'+m.id+'" data-cfm="この対戦をキャンセルします（レート変動なし）。よろしいですか？">対戦キャンセル（変動なし）</button>';
+ }else{
+  h+='<div class="mut" style="margin-top:6px;">対戦中</div>';
+  h+='<div class="rowline"><span>'+esc(m.p1)+'</span><span class="mut">'+repLabel(m.p1_report)+'</span></div>';
+  h+='<div class="rowline"><span>'+esc(m.p2)+'</span><span class="mut">'+repLabel(m.p2_report)+'</span></div>';
+  h+='<div class="mut" style="margin-top:8px;">主催による強制確定:</div>';
+  h+='<button class="btn green" data-act="fres" data-res="p1_win" data-mid="'+m.id+'" data-cfm="「'+esc(m.p1)+'」の勝ちで確定します。よろしいですか？">'+esc(m.p1)+' の勝ち</button>';
+  h+='<button class="btn green" data-act="fres" data-res="p2_win" data-mid="'+m.id+'" data-cfm="「'+esc(m.p2)+'」の勝ちで確定します。よろしいですか？">'+esc(m.p2)+' の勝ち</button>';
+  h+='<button class="btn gray" data-act="fres" data-res="draw" data-mid="'+m.id+'" data-cfm="引き分けで確定します。よろしいですか？">引き分け</button>';
+  h+='<button class="btn gray" data-act="fres" data-res="cancelled" data-mid="'+m.id+'" data-cfm="この対戦をキャンセルします（レート変動なし）。よろしいですか？">キャンセル（変動なし）</button>';
+ }
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
+function showFix(mid){
+ var r=null;
+ for(var i=0;i<A.recent.length;i++){if(A.recent[i].id===mid){r=A.recent[i];}}
+ if(!r){return;}
+ var h='<div style="font-weight:800;font-size:16px;">結果の修正 — テーブル '+r.table_no+'</div>';
+ h+='<div class="mut" style="margin-top:6px;">'+esc(r.p1)+' vs '+esc(r.p2)+'<br>現在: '+resultText(r.result,r.p1,r.p2)+'</div>';
+ h+='<div class="mut" style="margin-top:8px;">正しい結果を選択（レートは自動で巻き戻して再計算されます）:</div>';
+ var opts=[['p1_win',esc(r.p1)+' の勝ち'],['p2_win',esc(r.p2)+' の勝ち'],['draw','引き分け'],['p1_noshow',esc(r.p1)+' 不戦敗'],['p2_noshow',esc(r.p2)+' 不戦敗'],['both_timeout','両者ペナルティ'],['cancelled','キャンセル（変動なし）']];
+ for(var j=0;j<opts.length;j++){
+  h+='<button class="btn '+(opts[j][0]===r.result?'gray':'')+'" data-act="fixres" data-res="'+opts[j][0]+'" data-mid="'+r.id+'" data-cfm="結果を「'+opts[j][1]+'」に修正します。よろしいですか？">'+opts[j][1]+'</button>';
+ }
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
+function showQr(){
+ var pw=A.tournament.password;
+ var url=playerUrl()+'?tp='+encodeURIComponent(pw);
+ var h='<div style="font-weight:800;font-size:16px;">参加用QRコード</div>';
+ h+='<div id="qr" style="background:#fff;padding:12px;border-radius:12px;width:244px;margin:14px auto;"></div>';
+ h+='<div class="mut" style="word-break:break-all;font-size:11px;">'+esc(url)+'</div>';
+ h+='<div class="mut" style="margin-top:8px;">参加者がこのQRを読み込むと、大会パスワード入力済みで参加できます。</div>';
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+ new QRCode(document.getElementById('qr'),{text:url,width:220,height:220});
+}
+async function doCsv(){
+ var rows=await rpc('admin_matches_export',{tid:curTid});
+ if(!rows||rows.length===0){toastMsg('出力できる対戦結果がありません');return;}
+ var NL=String.fromCharCode(10);
+ function q(v){v=String(v===null||v===undefined?'':v);var o='"',i,c;for(i=0;i<v.length;i++){c=v.charAt(i);if(c==='"'){o+='""';}else{o+=c;}}return o+'"';}
+ var csv='日時,テーブル,プレイヤー1,開始前レート1,変動1,プレイヤー2,開始前レート2,変動2,結果'+NL;
+ for(var i=0;i<rows.length;i++){
+  var r=rows[i];
+  csv+=[q(r.completed_at),q(r.table_no),q(r.p1),q(r.p1_before),q(r.p1_delta),q(r.p2),q(r.p2_before),q(r.p2_delta),q(r.result)].join(',')+NL;
+ }
+ var bom=String.fromCharCode(65279);
+ var blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8'});
+ var a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);
+ a.download='matches.csv';
+ document.body.appendChild(a);
+ a.click();
+ document.body.removeChild(a);
+}
+document.addEventListener('click',async function(ev){
+ var el=ev.target.closest('[data-act]');
+ if(!el||busy){return;}
+ var act=el.getAttribute('data-act');
+ busy=true;
+ try{
+  if(act==='login'){
+   var r=await sb.auth.signInWithPassword({email:val('email'),password:val('pass')});
+   if(r.error){toastMsg('ログインに失敗しました');}else{afterLogin();}
+  }
+  else if(act==='logout'){await sb.auth.signOut();}
+  else if(act==='claim'){
+   var s=await sb.auth.getSession();
+   var res=await fetch(FN+'/claim-admin',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.data.session.access_token},body:JSON.stringify({key:val('akey')})});
+   var j=await res.json();
+   if(!res.ok){toastMsg(j.error||'登録に失敗しました');}
+   else{toastMsg('管理者権限を有効化しました');afterLogin();}
+  }
+  else if(act==='recheck'){afterLogin();}
+  else if(act==='create'){
+   var n=parseInt(val('ctables'),10);
+   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n});
+   toastMsg('大会を作成しました');
+   await showList();
+  }
+  else if(act==='open'){await openDash(el.getAttribute('data-tid'));}
+  else if(act==='back-list'){await showList();}
+  else if(act==='pause'){await rpc('admin_pause',{tid:curTid,p:!A.tournament.matching_paused});await aTick();}
+  else if(act==='qr'){showQr();}
+  else if(act==='csv'){await doCsv();}
+  else if(act==='end'){
+   if(confirm('大会を終了しますか？終了すると参加・マッチングができなくなります。')){
+    await rpc('admin_end_tournament',{tid:curTid});
+    toastMsg('大会を終了しました');
+    await showList();
+   }
+  }
+  else if(act==='tmod'){showTmod(parseInt(el.getAttribute('data-no'),10));}
+  else if(act==='fixmod'){showFix(el.getAttribute('data-mid'));}
+  else if(act==='pact'){
+   var cfm=el.getAttribute('data-cfm');
+   if(!cfm||confirm(cfm)){
+    await rpc('admin_resolve_pending',{mid:el.getAttribute('data-mid'),action:el.getAttribute('data-action')});
+    hideModal();await aTick();
+   }
+  }
+  else if(act==='fres'){
+   if(confirm(el.getAttribute('data-cfm'))){
+    await rpc('admin_force_result',{mid:el.getAttribute('data-mid'),res:el.getAttribute('data-res')});
+    hideModal();await aTick();
+   }
+  }
+  else if(act==='fixres'){
+   if(confirm(el.getAttribute('data-cfm'))){
+    await rpc('admin_fix_result',{mid:el.getAttribute('data-mid'),res:el.getAttribute('data-res')});
+    toastMsg('結果を修正しました');
+    hideModal();await aTick();
+   }
+  }
+  else if(act==='kick'){
+   var nk=el.getAttribute('data-nick');
+   if(confirm('「'+nk+'」を強制退出させますか？この大会に再参加できなくなります。')){
+    await rpc('admin_kick',{tid:curTid,target:el.getAttribute('data-uid')});
+    toastMsg('退出させました');
+    await aTick();
+   }
+  }
+  else if(act==='adj'){
+   var nk2=el.getAttribute('data-nick');
+   var dv=prompt('「'+nk2+'」のレート増減値を入力（例: -20 / 15）');
+   if(dv!==null&&dv!==''){
+    var delta=parseInt(dv,10);
+    if(isNaN(delta)){toastMsg('数値を入力してください');}
+    else{
+     var reason=prompt('理由（任意）')||'';
+     var out=await rpc('admin_adjust_rating',{nick:nk2,delta:delta,reason:reason});
+     toastMsg(out.nickname+' のレートを '+out.rating+' に変更しました');
+     await aTick();
+    }
+   }
+  }
+  else if(act==='grant1'||act==='grant0'){
+   var g=(act==='grant1');
+   var nk3=prompt('対象のニックネームを入力');
+   if(nk3){
+    await rpc('admin_grant',{nick:nk3,g:g});
+    toastMsg(g?'主催権限を付与しました':'主催権限を解除しました');
+   }
+  }
+  else if(act==='mclose'){hideModal();}
+ }catch(e){toastMsg(errMsg(e));}
+ busy=false;
+});
+boot();
+</script>
+</body>
+</html>
