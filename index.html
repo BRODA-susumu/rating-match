@@ -67,7 +67,7 @@ var SUPA_URL='https://oebpqvuovmhrdjlkpspj.supabase.co';
 var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYnBxdnVvdm1ocmRqbGtwc3BqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTE1NjEsImV4cCI6MjEwNTQ4NzU2MX0.NZz2opTMAt6pcI-zPSLgAOLXvB5D80qkGcD6Jnj1Brw';
 var FN=SUPA_URL+'/functions/v1/app';
 var sb=window.supabase.createClient(SUPA_URL,ANON);
-var S=null,offset=0,viewLock=null,pollIv=null,tickIv=null,busy=false,authMode='login',pendingTp=null;
+var S=null,offset=0,viewLock=null,pollT=null,pollOn=false,tickIv=null,busy=false,authMode='login',pendingTp=null;
 var histRows=null,histFilter='all';
 var TD=null,PO=null,poAt=0,poBusy=false,betM=null,betSel=null;
 var notif={ac:null,lastMatch:null,lastResult:null,lastPm:null,overdue:{}};
@@ -130,10 +130,12 @@ sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT'){stopApp();renderAut
 async function startApp(){
  if(pendingTp){try{await rpc('join_tournament',{pw:pendingTp});toastMsg('大会に参加しました');}catch(e){toastMsg(errMsg(e));}pendingTp=null;try{history.replaceState(null,'',location.pathname);}catch(e2){}}
  await poll();
- if(pollIv){clearInterval(pollIv);}if(tickIv){clearInterval(tickIv);}
- pollIv=setInterval(poll,2500);tickIv=setInterval(tick,500);
+ pollOn=true;
+ if(tickIv){clearInterval(tickIv);}
+ tickIv=setInterval(tick,500);
+ schedule();
 }
-function stopApp(){clearInterval(pollIv);clearInterval(tickIv);S=null;viewLock=null;firstPoll=true;hideModal();}
+function stopApp(){pollOn=false;clearTimeout(pollT);clearInterval(tickIv);S=null;viewLock=null;firstPoll=true;hideModal();}
 async function poll(){
  try{var d=await rpc('get_state');S=d;offset=Date.parse(d.now)-Date.now();checkNotify();render();}catch(e){}
  if(S&&viewLock==='po'&&!poBusy&&Date.now()-poAt>4000){
@@ -141,7 +143,26 @@ async function poll(){
   try{PO=await rpc('get_playoff');poAt=Date.now();if(!modalOpen()&&viewLock==='po'){drawPo();}}catch(e2){}
   poBusy=false;
  }
+ schedule();
 }
+// 可変ポーリング: 待機中・対戦中・トナメ出場中は2.5秒、トナメ表閲覧中4秒、それ以外10秒、裏に回したら20秒
+function pollDelay(){
+ if(document.hidden){return 20000;}
+ if(!S){return 3000;}
+ if(S.queued||S.match){return 2500;}
+ var po=S.playoff;
+ if(po&&po.status==='active'&&po.alive){return 2500;}
+ if(viewLock==='po'){return 4000;}
+ return 10000;
+}
+function schedule(){
+ clearTimeout(pollT);
+ if(!pollOn){return;}
+ pollT=setTimeout(poll,pollDelay());
+}
+document.addEventListener('visibilitychange',function(){
+ if(pollOn&&!document.hidden){clearTimeout(pollT);poll();}
+});
 function myPm(){
  var pm=S&&S.playoff&&S.playoff.my_pmatch;
  if(pm&&(pm.status==='pending_start'||pm.status==='in_progress')){return pm;}
@@ -261,6 +282,7 @@ function renderHome(){
  if(t&&po){h+='<button class="btn gray" data-act="ranking">ランキング</button>';}
  h+='<div style="display:flex;gap:8px;">';
  if(!p.nickname_changed){h+='<button class="btn gray" data-act="nick" style="font-size:14px;">ニックネーム変更</button>';}
+ h+='<button class="btn gray" data-act="pwchg" style="font-size:14px;">パスワード変更</button>';
  h+='<button class="btn gray" data-act="logout" style="font-size:14px;">ログアウト</button></div>';
  h+='</div>';
  app().innerHTML=h;
@@ -676,6 +698,24 @@ document.addEventListener('click',async function(ev){
   else if(act==='nick'){
    var n=prompt('新しいニックネーム（変更できるのは1回だけです）');
    if(n){await rpc('change_nickname',{newnick:n});toastMsg('ニックネームを変更しました');await poll();}
+  }
+  else if(act==='pwchg'){
+   var ph='<div style="font-weight:800;font-size:16px;">パスワード変更</div>';
+   ph+='<input id="npw1" type="password" placeholder="新しいパスワード（6文字以上）">';
+   ph+='<input id="npw2" type="password" placeholder="もう一度入力">';
+   ph+='<button class="btn" data-act="pwgo">変更する</button>';
+   ph+='<button class="btn gray" data-act="mclose">やめる</button>';
+   showModal(ph);
+  }
+  else if(act==='pwgo'){
+   var n1=val('npw1'),n2=val('npw2');
+   if(n1.length<6){toastMsg('パスワードは6文字以上にしてください');}
+   else if(n1!==n2){toastMsg('2回の入力が一致しません');}
+   else{
+    var ur=await sb.auth.updateUser({password:n1});
+    if(ur.error){toastMsg('変更できませんでした: '+ur.error.message);}
+    else{hideModal();toastMsg('パスワードを変更しました');}
+   }
   }
   else if(act==='logout'){await sb.auth.signOut();}
  }catch(e){toastMsg(errMsg(e));}

@@ -154,7 +154,7 @@ async function openDash(tid){
  curView='dash';
  await aTick();
  clearInterval(aIv);
- aIv=setInterval(aTick,3000);
+ aIv=setInterval(function(){if(!document.hidden){aTick();}},3000);
 }
 async function aTick(){
  if(!curTid){return;}
