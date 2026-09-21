@@ -467,7 +467,7 @@ async function showRank(){
   var r=rows[i];
   h+='<div style="padding:8px 0;border-bottom:1px solid #262c47;">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;">';
-  h+='<span class="nm" style="min-width:0;"><b style="display:inline-block;width:34px;">'+r.rank+'位</b>'+esc(r.nickname)+'</span>';
+  h+='<span class="nm" style="min-width:0;"><b style="display:inline-block;width:34px;">'+r.rank+'位</b>'+esc(r.nickname)+' <span class="mut" style="font-size:11px;">'+(r.w||0)+'勝'+(r.l||0)+'敗'+((r.d||0)>0?r.d+'分':'')+'</span></span>';
   h+='<span style="text-align:right;flex-shrink:0;"><b style="font-size:15px;">'+r.day+'</b> <span class="mut" style="font-size:10px;">当日</span> <span class="mut" style="font-size:11px;">／通算 '+r.rating+'</span></span></div>';
   if(r.titles&&r.titles.length){
    var tb2='';

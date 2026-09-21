@@ -120,6 +120,7 @@ function kindLabel(k){if(k==='win'){return '勝ち';}if(k==='lose'){return '負�
 function roundName(r,rounds,third){if(third){return '3位決定戦';}if(r===rounds){return '決勝';}if(r===rounds-1){return '準決勝';}if(r===rounds-2){return '準々決勝';}return r+'回戦';}
 function ttl(t,big){if(!t){return '';}return '<span class="tt '+esc(t.rarity)+(big?' big':'')+'"><span>'+esc(t.name)+'</span></span>';}
 function ttlRow(arr,big){if(!arr||!arr.length){return '';}var h='<div class="ttrow">';for(var i=0;i<arr.length;i++){h+=ttl(arr[i],big);}return h+'</div>';}
+function recStr(r){return (r.w||0)+'勝'+(r.l||0)+'敗'+((r.d||0)>0?(r.d+'分'):'');}
 function isEditing(){var e=document.activeElement;return !!(e&&(e.tagName==='INPUT'||e.tagName==='SELECT'));}
 function modalOpen(){return document.getElementById('modal').style.display==='block';}
 function showModal(h){document.getElementById('mbox').innerHTML=h;document.getElementById('modal').style.display='block';}
@@ -379,7 +380,7 @@ async function renderHistory(){
  app().innerHTML='<div class="wrap"><div class="card center mut">読み込み中…</div></div>';
  try{
   histRows=await rpc('get_history');
-  histFilter='all';
+  histFilter='r30';
   drawHistory();
  }catch(e){toastMsg(errMsg(e));viewLock=null;render();}
 }
@@ -388,18 +389,42 @@ function drawHistory(){
  var names=[];
  for(var i=0;i<rows.length;i++){if(names.indexOf(rows[i].tournament)<0){names.push(rows[i].tournament);}}
  var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">対戦履歴</div>';
- if(names.length>1){
+ var sel=[];
+ for(var q=0;q<rows.length;q++){
+  if(histFilter==='all'||(histFilter==='r30'&&sel.length<30)||rows[q].tournament===histFilter){
+   if(histFilter==='r30'&&(rows[q].kind==='cancelled'||rows[q].kind==='opponent_noshow'||rows[q].kind==='timeout_penalty')){continue;}
+   sel.push(rows[q]);
+  }
+ }
+ var sw=0,sl=0,sd=0,strip='';
+ for(var z=0;z<sel.length;z++){
+  var kz=sel[z].kind;
+  if(kz==='win'){sw++;}else if(kz==='lose'||kz==='noshow_penalty'){sl++;}else if(kz==='draw'){sd++;}
+ }
+ for(var z2=sel.length-1;z2>=0;z2--){
+  var k2=sel[z2].kind;
+  if(k2==='win'){strip+='<span class="plus">○</span>';}else if(k2==='lose'||k2==='noshow_penalty'){strip+='<span class="minus">●</span>';}else if(k2==='draw'){strip+='<span class="mut">△</span>';}
+ }
+ {
   h+='<div style="display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;">';
+  h+='<button class="sb" style="'+(histFilter==='r30'?'background:#3b5bfd;color:#fff;':'')+'white-space:nowrap;" data-act="histflt" data-tn="r30">直近30戦</button>';
   h+='<button class="sb" style="'+(histFilter==='all'?'background:#3b5bfd;color:#fff;':'')+'white-space:nowrap;" data-act="histflt" data-tn="all">すべて</button>';
   for(var j=0;j<names.length;j++){
    h+='<button class="sb" style="'+(histFilter===names[j]?'background:#3b5bfd;color:#fff;':'')+'white-space:nowrap;" data-act="histflt" data-tn="'+esc(names[j])+'">'+esc(names[j])+'</button>';
   }
   h+='</div>';
  }
+ if(sel.length>0){
+  var dec=sw+sl;
+  h+='<div style="background:#12162a;border-radius:12px;padding:12px;margin-bottom:6px;">';
+  h+='<div class="label">'+(histFilter==='r30'?'直近'+sel.length+'戦（全大会通算）':(histFilter==='all'?'全対戦（全大会通算）':esc(histFilter)))+'</div>';
+  h+='<div style="display:flex;align-items:baseline;gap:12px;margin-top:4px;"><b style="font-size:22px;">'+sw+'勝'+sl+'敗'+(sd>0?sd+'分':'')+'</b><span class="mut">勝率 '+(dec>0?Math.round(sw*1000/dec)/10:0)+'%</span></div>';
+  if(histFilter==='r30'){h+='<div style="margin-top:6px;font-size:13px;letter-spacing:1px;word-break:break-all;line-height:1.5;">'+strip+'</div><div class="mut" style="font-size:10px;">左が古い → 右が新しい</div>';}
+  h+='</div>';
+ }
  var shown=0;
- for(var k=0;k<rows.length;k++){
-  var r=rows[k];
-  if(histFilter!=='all'&&r.tournament!==histFilter){continue;}
+ for(var k=0;k<sel.length;k++){
+  var r=sel[k];
   shown++;
   var right='';
   if(r.playoff){right='<span class="mut" style="font-weight:700;font-size:12px;">トーナメント</span>';}
@@ -431,7 +456,7 @@ async function renderRanking(){
    var r=rows[i];
    h+='<div style="padding:9px 0;border-bottom:1px solid #262c47;'+(r.me?'background:#232a4a;border-radius:8px;padding-left:8px;padding-right:8px;':'')+'">';
    h+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:15px;">';
-   h+='<span class="nm2" style="min-width:0;"><b style="display:inline-block;width:34px;">'+r.rank+'位</b>'+esc(r.nickname)+(r.me?' <span class="badge">自分</span>':'')+'</span>';
+   h+='<span class="nm2" style="min-width:0;"><b style="display:inline-block;width:34px;">'+r.rank+'位</b>'+esc(r.nickname)+(r.me?' <span class="badge">自分</span>':'')+'<br><span class="mut" style="font-size:11px;margin-left:34px;">'+recStr(r)+'</span></span>';
    h+='<span style="text-align:right;flex-shrink:0;"><b style="font-size:16px;">'+r.day+'</b> <span class="mut" style="font-size:10px;">当日</span><br><span class="mut" style="font-size:11px;">通算 '+r.rating+'</span></span></div>';
    if(r.titles&&r.titles.length){h+='<div class="ttrow" style="margin-top:2px;margin-left:34px;">'+r.titles.map(function(tt2){return ttl(tt2,false);}).join('')+'</div>';}
    h+='</div>';
