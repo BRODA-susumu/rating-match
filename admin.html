@@ -19,7 +19,7 @@ body{margin:0;font-family:system-ui,-apple-system,'Hiragino Sans',sans-serif;bac
 .sb{padding:7px 10px;border-radius:8px;border:0;font-size:12px;font-weight:700;color:#fff;background:#2a3050;margin-left:6px;}
 .sb.red{background:#e0405a;}
 .label{font-size:12px;color:#9aa3c7;letter-spacing:0.05em;}
-input{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #2a3050;background:#12162a;color:#fff;font-size:16px;margin-top:8px;}
+input,select{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #2a3050;background:#12162a;color:#fff;font-size:16px;margin-top:8px;}
 .center{text-align:center;}
 .mut{color:#9aa3c7;font-size:13px;}
 .plus{color:#4be38a;}
@@ -36,6 +36,24 @@ input{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1p
 .tc.g{background:#123a28;border:1px solid #19a974;color:#b8f5d8;}
 .tc.x{opacity:0.55;border:1px dashed #e0405a;}
 .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tc.q{background:#2c1f4d;border:1px solid #8a5cf6;color:#dbc9ff;}
+.coin{color:#ffd75e;font-weight:800;}
+.tt{display:inline-block;padding:1.5px;vertical-align:middle;clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,7px 100%,0 50%);}
+.tt>span{display:flex;align-items:center;padding:2px 11px;font-weight:700;font-size:10px;letter-spacing:2px;white-space:nowrap;font-family:'Hiragino Mincho ProN','Yu Mincho',serif;clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 50%,calc(100% - 7px) 100%,7px 100%,0 50%);}
+.tt.N{background:linear-gradient(180deg,#cbd4de,#7f8a98);}.tt.N>span{background:#23221e;color:#dfe6ee;}
+.tt.R{background:linear-gradient(180deg,#e8c96a,#b18a2c);}.tt.R>span{background:#1d2450;color:#f3e6b8;}
+.tt.SR{background:linear-gradient(180deg,#e8c96a,#b18a2c);}.tt.SR>span{background:linear-gradient(180deg,#872424,#6a1a1a);color:#f7e9c2;}
+.tt.LR{background:linear-gradient(180deg,#8a5f14,#6b470c);box-shadow:0 0 8px rgba(232,201,106,.4);}.tt.LR>span{background:linear-gradient(180deg,#f6e394,#c79c2e);color:#3a2905;}
+.pomc{background:#141830;border:1px solid #262c47;border-radius:12px;padding:10px 12px;margin-top:10px;}
+.pomc.live{border-color:#19a974;}
+.pomc.done{opacity:.8;}
+.porow{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;}
+.porow.win{font-weight:900;}
+.porow.lose{color:#8890b0;}
+.poseed{display:inline-block;min-width:22px;text-align:center;background:#2a3050;border-radius:6px;font-size:11px;font-weight:800;padding:2px 0;color:#cdd4f5;flex-shrink:0;}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;background:#2a3050;color:#cdd4f5;}
+.chip.g{background:#123a28;color:#7de8b6;}
+.chip.y{background:#4d3d10;color:#ffe9b0;}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:40;overflow:auto;padding:16px;}
 #mbox{max-width:420px;margin:36px auto;background:#1a1f33;border-radius:16px;padding:18px;}
 #toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:#e0405a;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;display:none;z-index:60;text-align:center;}
@@ -53,6 +71,7 @@ var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var FN=SUPA_URL+'/functions/v1/app';
 var sb=window.supabase.createClient(SUPA_URL,ANON);
 var A=null,ME=null,curTid=null,offA=0,aIv=null,listCache=[],busy=false;
+var PA=null,TAD=null,curView='dash';
 function playerUrl(){
  var u=location.origin+location.pathname;
  u=u.split('admin.html').join('index.html');
@@ -67,8 +86,10 @@ function val(id){var e=document.getElementById(id);return e?e.value.trim():'';}
 function modalOpen(){return document.getElementById('modal').style.display==='block';}
 function showModal(h){document.getElementById('mbox').innerHTML=h;document.getElementById('modal').style.display='block';}
 function hideModal(){document.getElementById('modal').style.display='none';}
-function isEditing(){var e=document.activeElement;return !!(e&&e.tagName==='INPUT');}
+function isEditing(){var e=document.activeElement;return !!(e&&(e.tagName==='INPUT'||e.tagName==='SELECT'));}
 function repLabel(r){if(r==='win'){return '勝利報告';}if(r==='lose'){return '敗北報告';}if(r==='draw'){return '引き分け報告';}return '未報告';}
+function ttl(t){if(!t){return '';}return '<span class="tt '+esc(t.rarity)+'"><span>'+esc(t.name)+'</span></span>';}
+function roundName(r,rounds,third){if(third){return '3位決定戦';}if(r===rounds){return '決勝';}if(r===rounds-1){return '準決勝';}if(r===rounds-2){return '準々決勝';}return r+'回戦';}
 function resultText(r,p1,p2){
  if(r==='p1_win'){return esc(p1)+' の勝ち';}
  if(r==='p2_win'){return esc(p2)+' の勝ち';}
@@ -109,9 +130,9 @@ async function showList(){
  renderList();
 }
 function renderList(){
- var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><button class="btn gray" data-act="rateinfo" style="margin-top:12px;">レート計算の仕組み</button></div>';
+ var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
- h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数">';
+ h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数"><div class="label" style="margin-top:10px;">マッチング基準</div><select id="cbasis"><option value="overall" selected>通算レート基準（常連が有利になりにくい実力マッチ）</option><option value="day">当日レート基準（その日の調子でマッチ）</option></select>';
  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label>';
  h+='<button class="btn" data-act="create">大会を作成</button></div>';
  h+='<div class="label" style="margin:6px 4px;">大会一覧（タップで管理）</div>';
@@ -130,6 +151,7 @@ function renderList(){
 }
 async function openDash(tid){
  curTid=tid;
+ curView='dash';
  await aTick();
  clearInterval(aIv);
  aIv=setInterval(aTick,3000);
@@ -137,6 +159,11 @@ async function openDash(tid){
 async function aTick(){
  if(!curTid){return;}
  try{
+  if(curView==='po'){
+   PA=await rpc('admin_playoff_state',{tid:curTid});
+   if(!modalOpen()&&!isEditing()){drawApo();}
+   return;
+  }
   A=await rpc('admin_state',{tid:curTid});
   offA=Date.parse(A.now)-Date.now();
   if(!modalOpen()&&!isEditing()){renderDash();}
@@ -148,7 +175,7 @@ function renderDash(){
  var h='<div class="wrap">';
  h+='<button class="sb" data-act="back-list" style="margin:0 0 10px;">← 大会一覧へ</button>';
  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:17px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
- h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+' ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
+ h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':(t.match_basis==='day'?'（当日基準）':''))+' ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
  h+='<div class="inline">';
  if(t.status==='active'){
   h+='<button class="btn '+(t.matching_paused?'green':'warn')+'" data-act="pause">'+(t.matching_paused?'募集を再開':'募集を停止')+'</button>';
@@ -158,22 +185,50 @@ function renderDash(){
  h+='<button class="btn gray" data-act="rateinfo">レート計算</button>';
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
  h+='</div></div>';
+ var po=A.playoff;var elig=A.eligible||0;
+ if(t.status==='active'||po){
+  h+='<div class="card"><div class="label">🏆 トーナメント（上位決戦）</div>';
+  if(!po){
+   var sizes=[2,4,8,16,32,64].filter(function(sz){return sz<=elig;});
+   if(sizes.length===0){h+='<div class="mut" style="margin-top:6px;">当日1戦以上した参加者が2人以上になると開始できます（現在 '+elig+'人）</div>';}
+   else{
+    h+='<div class="mut" style="margin-top:6px;">当日レート上位から選出（対象 '+elig+'人）</div>';
+    h+='<div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><select id="posize" style="margin-top:0;flex:1;">';
+    for(var si=0;si<sizes.length;si++){h+='<option value="'+sizes[si]+'"'+(si===sizes.length-1?' selected':'')+'>上位'+sizes[si]+'人</option>';}
+    h+='</select><label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;"><input type="checkbox" id="pothird" style="width:auto;margin:0;">3位決定戦</label></div>';
+    h+='<button class="btn warn" data-act="postart">トーナメント開始</button>';
+    h+='<div class="mut" style="margin-top:6px;font-size:11px;">開始すると進出者は通常マッチング終了。トーナメント戦はレート変動なし・引き分けなし。出場していない人はコインで勝利者予想（ベット）ができます。</div>';
+   }
+  }else if(po.status==='active'){
+   h+='<div style="font-weight:800;margin-top:4px;">進行中（'+po.size+'人）</div>';
+   h+='<div class="inline"><button class="btn" data-act="apo">トーナメント表</button><button class="btn red" data-act="pocancel">中止</button></div>';
+  }else{
+   h+='<div style="font-weight:800;margin-top:4px;">🏆 優勝: '+esc(po.winner||'')+'</div>';
+   h+='<button class="btn gray" data-act="apo">トーナメント表を見る</button>';
+  }
+  h+='</div>';
+ }
  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div class="label">進行ボード（タップ=操作 / 長押し=使用停止・再開）</div>'+(t.status==='active'?'<span style="white-space:nowrap;"><button class="sb" data-act="tminus">−卓</button><button class="sb" data-act="tplus">＋卓</button></span>':'')+'</div><div class="grid">';
  for(var i=0;i<A.tables.length;i++){
-  var tb=A.tables[i];var m=tb.match;var cls='';var inner='';
-  if(m){
+  var tb=A.tables[i];var m=tb.match;var pmt=tb.pmatch;var cls='';var inner='';var actAttr='';
+  if(pmt){
+   cls='q';
+   inner='<div class="no">'+tb.no+'</div><div class="nm">'+esc(pmt.p1)+'</div><div class="nm">'+esc(pmt.p2)+'</div><div style="font-size:9px;">トナメ'+(pmt.status==='pending_start'?'・開始待ち':'・対戦中')+'</div>';
+   actAttr=' data-act="potm" data-mid="'+pmt.id+'"';
+  }else if(m){
    if(m.status==='pending_start'){
     var over=Date.parse(m.start_deadline)<(Date.now()+offA);
     cls=over?'o':'p';
    }else{cls='g';}
    inner='<div class="no">'+tb.no+'</div><div class="nm">'+esc(m.p1)+'</div><div class="nm">'+esc(m.p2)+'</div>'+(tb.disabled?'<div style="font-size:9px;">停止予約</div>':'');
+   actAttr=' data-act="tmod"';
   }else{
    inner='<div class="no">'+tb.no+'</div><div style="margin-top:12px;">'+(tb.disabled?'使用停止':'空き')+'</div>';
   }
   if(tb.disabled){cls+=' x';}
-  h+='<div class="tc '+cls+'" data-no="'+tb.no+'"'+(m?' data-act="tmod"':'')+'>'+inner+'</div>';
+  h+='<div class="tc '+cls+'" data-no="'+tb.no+'"'+actAttr+'>'+inner+'</div>';
  }
- h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中 / 薄赤枠=使用停止</div></div>';
+ h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中 / 紫=トーナメント / 薄赤枠=使用停止</div></div>';
  if(A.queue&&A.queue.length>0){
   h+='<div class="card"><div class="label">待機中</div>';
   for(var i2=0;i2<A.queue.length;i2++){
@@ -196,7 +251,7 @@ function renderDash(){
  else{
   for(var i4=0;i4<A.participants.length;i4++){
    var pp=A.participants[i4];
-   h+='<div class="rowline"><span>'+esc(pp.nickname)+' <b>'+pp.rating+'</b>'+(pp.kicked?' <span class="badge off">退出済</span>':'')+'</span><span>';
+   h+='<div class="rowline"><span class="nm" style="min-width:0;">'+esc(pp.nickname)+' <b>'+pp.rating+'</b> <span class="mut" style="font-size:11px;">日'+pp.day+'・🪙'+pp.coins+'</span>'+(pp.kicked?' <span class="badge off">退出済</span>':'')+'</span><span style="flex-shrink:0;">';
    h+='<button class="sb" data-act="adj" data-nick="'+esc(pp.nickname)+'">レート修正</button>';
    if(!pp.kicked&&t.status==='active'){h+='<button class="sb red" data-act="kick" data-uid="'+pp.id+'" data-nick="'+esc(pp.nickname)+'">退出</button>';}
    h+='</span></div>';
@@ -265,7 +320,7 @@ function showRateInfo(){
   h+='<tr style="border-top:1px solid #262c47;"><td style="padding:6px 2px;">'+rows[i][0]+'</td><td class="center">'+rows[i][1]+'</td><td class="center">'+rows[i][2]+'</td><td class="center">'+rows[i][3]+'</td></tr>';
  }
  h+='</table>';
- h+='<div class="mut" style="margin-top:10px;font-size:12px;">・格上に勝つほど大きく増え、格下に負けるほど大きく減ります<br>・不戦敗（時間内に開始しなかった側）は「その相手に負けた場合」と同じだけ減少。来ていた側は変動なし<br>・両者とも時間内に開始しなかった場合は、両者とも負け相当の減少<br>・交流会モードの大会ではレートは変動しません</div>';
+ h+='<div class="mut" style="margin-top:10px;font-size:12px;">・格上に勝つほど大きく増え、格下に負けるほど大きく減ります<br>・不戦敗（時間内に開始しなかった側）は「その相手に負けた場合」と同じだけ減少。来ていた側は変動なし<br>・両者とも時間内に開始しなかった場合は、両者とも負け相当の減少<br>・交流会モードの大会ではレートは変動しません<br>・レートは「通算」と「当日」の2本立て。どちらも同じ計算式で、通算は大会をまたいで持ち越し、当日は大会ごとに2000から。マッチングにどちらを使うかは大会作成時に選択<br>・トーナメント（上位決戦）の試合ではレートは変動しません</div>';
  h+='<button class="btn gray" data-act="mclose">閉じる</button>';
  showModal(h);
 }
@@ -285,10 +340,10 @@ async function doCsv(){
  if(!rows||rows.length===0){toastMsg('出力できる対戦結果がありません');return;}
  var NL=String.fromCharCode(10);
  function q(v){v=String(v===null||v===undefined?'':v);var o='"',i,c;for(i=0;i<v.length;i++){c=v.charAt(i);if(c==='"'){o+='""';}else{o+=c;}}return o+'"';}
- var csv='日時,テーブル,プレイヤー1,開始前レート1,変動1,プレイヤー2,開始前レート2,変動2,結果'+NL;
+ var csv='日時,テーブル,プレイヤー1,通算前1,通算変動1,当日前1,当日変動1,プレイヤー2,通算前2,通算変動2,当日前2,当日変動2,結果'+NL;
  for(var i=0;i<rows.length;i++){
   var r=rows[i];
-  csv+=[q(r.completed_at),q(r.table_no),q(r.p1),q(r.p1_before),q(r.p1_delta),q(r.p2),q(r.p2_before),q(r.p2_delta),q(r.result)].join(',')+NL;
+  csv+=[q(r.completed_at),q(r.table_no),q(r.p1),q(r.p1_before),q(r.p1_delta),q(r.p1_day_before),q(r.p1_day_delta),q(r.p2),q(r.p2_before),q(r.p2_delta),q(r.p2_day_before),q(r.p2_day_delta),q(r.result)].join(',')+NL;
  }
  var bom=String.fromCharCode(65279);
  var blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8'});
@@ -298,6 +353,108 @@ async function doCsv(){
  document.body.appendChild(a);
  a.click();
  document.body.removeChild(a);
+}
+function apoRow(m,side){
+ var p=m[side];
+ if(!p){return '<div class="porow mut">（勝ち上がり待ち）</div>';}
+ var cls='porow';
+ if(m.winner_side){cls+=(m.winner_side===side?' win':' lose');}
+ var right=m.winner_side?(m.winner_side===side?'👑':''):(m.odds?'<span class="mut" style="font-size:11px;">'+m.odds[side]+'倍</span>':'');
+ return '<div class="'+cls+'"><span class="poseed">'+(p.seed||'-')+'</span><b class="nm" style="min-width:0;">'+esc(p.nickname)+'</b><span style="margin-left:auto;flex-shrink:0;">'+right+'</span></div>';
+}
+function apoCard(m){
+ var cls='pomc';
+ if(m.status==='completed'){cls+=' done';}
+ if(m.status==='in_progress'){cls+=' live';}
+ var st=m.status==='completed'?'<span class="chip">終了</span>':(m.status==='in_progress'?'<span class="chip g">対戦中</span>':(m.status==='pending_start'?'<span class="chip y">開始待ち</span>':'<span class="chip">未定</span>'));
+ var h='<div class="'+cls+'" data-act="apom" data-mid="'+esc(m.id)+'">';
+ h+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;" class="mut"><span>'+(m.table_no?'卓 '+m.table_no:'')+'</span>'+st+'</div>';
+ h+=apoRow(m,'p1')+apoRow(m,'p2');
+ if((m.pool1||0)+(m.pool2||0)>0){h+='<div class="mut" style="font-size:11px;margin-top:2px;">ベット 🪙'+(m.pool1||0)+' vs 🪙'+(m.pool2||0)+'</div>';}
+ h+='</div>';
+ return h;
+}
+function drawApo(){
+ if(curView!=='po'){return;}
+ var h='<div class="wrap">';
+ h+='<button class="sb" data-act="apoback" style="margin:0 0 10px;">← ダッシュボードへ</button>';
+ if(!PA||PA.none){h+='<div class="card mut center">トーナメントはまだ開始されていません</div></div>';app().innerHTML=h;return;}
+ h+='<div class="card">';
+ if(PA.status==='finished'){h+='<div class="center"><div style="font-size:34px;">👑</div><div style="font-size:19px;font-weight:900;color:#f6e394;">優勝: '+esc(PA.winner||'')+'</div></div>';}
+ else{h+='<div style="font-weight:800;font-size:16px;">🏆 トーナメント表（'+PA.size+'人）</div><div class="mut" style="margin-top:4px;">試合をタップすると強制確定できます</div>';}
+ h+='</div>';
+ var ms=PA.matches||[];
+ for(var r=1;r<=PA.rounds;r++){
+  h+='<div class="label" style="margin:12px 4px 0;">'+roundName(r,PA.rounds,false)+'</div>';
+  for(var i=0;i<ms.length;i++){if(ms[i].round===r&&!ms[i].third){h+=apoCard(ms[i]);}}
+ }
+ if(PA.third){
+  h+='<div class="label" style="margin:12px 4px 0;">3位決定戦</div>';
+  for(var j=0;j<ms.length;j++){if(ms[j].third){h+=apoCard(ms[j]);}}
+ }
+ h+='</div>';
+ app().innerHTML=h;
+}
+function apoFind(mid){var ms=(PA&&PA.matches)||[];for(var i=0;i<ms.length;i++){if(ms[i].id===mid){return ms[i];}}return null;}
+function showApoForce(m){
+ if(!m.p1||!m.p2||m.status==='completed'||PA.status!=='active'){return;}
+ var h='<div style="font-weight:800;font-size:16px;">'+roundName(m.round,PA.rounds,m.third)+(m.table_no?' — 卓 '+m.table_no:'')+'</div>';
+ h+='<div class="mut" style="margin-top:6px;">'+esc(m.p1.nickname)+' vs '+esc(m.p2.nickname)+'</div>';
+ h+='<div class="mut" style="margin-top:8px;">主催による強制確定（レート変動なし・ベットも精算されます）:</div>';
+ h+='<button class="btn green" data-act="pofres" data-mid="'+esc(m.id)+'" data-res="p1_win" data-cfm="「'+esc(m.p1.nickname)+'」の勝ちで確定します。よろしいですか？">'+esc(m.p1.nickname)+' の勝ち</button>';
+ h+='<button class="btn green" data-act="pofres" data-mid="'+esc(m.id)+'" data-res="p2_win" data-cfm="「'+esc(m.p2.nickname)+'」の勝ちで確定します。よろしいですか？">'+esc(m.p2.nickname)+' の勝ち</button>';
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
+function findTablePm(no){
+ for(var i=0;i<A.tables.length;i++){if(A.tables[i].no===no){return A.tables[i].pmatch;}}
+ return null;
+}
+function showPoTmod(no){
+ var m=findTablePm(no);
+ if(!m){return;}
+ var h='<div style="font-weight:800;font-size:16px;">🏆 トーナメント — テーブル '+no+'</div>';
+ h+='<div class="rowline"><span>'+esc(m.p1)+'</span><span class="mut">'+(m.status==='pending_start'?(m.p1_started?'開始済':'未操作'):repLabel(m.p1_report))+'</span></div>';
+ h+='<div class="rowline"><span>'+esc(m.p2)+'</span><span class="mut">'+(m.status==='pending_start'?(m.p2_started?'開始済':'未操作'):repLabel(m.p2_report))+'</span></div>';
+ h+='<div class="mut" style="margin-top:8px;">主催による強制確定（ベットも精算されます）:</div>';
+ h+='<button class="btn green" data-act="pofres" data-mid="'+m.id+'" data-res="p1_win" data-cfm="「'+esc(m.p1)+'」の勝ちで確定します。よろしいですか？">'+esc(m.p1)+' の勝ち</button>';
+ h+='<button class="btn green" data-act="pofres" data-mid="'+m.id+'" data-res="p2_win" data-cfm="「'+esc(m.p2)+'」の勝ちで確定します。よろしいですか？">'+esc(m.p2)+' の勝ち</button>';
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
+async function showTitlesAdmin(){
+ TAD=await rpc('admin_list_titles');
+ drawTA();
+}
+function drawTA(){
+ var h='<div style="font-weight:800;font-size:16px;">称号の管理</div>';
+ h+='<div class="mut" style="margin-top:4px;">実績称号は条件達成で自動付与。コイン称号は追加できます。</div>';
+ for(var i=0;i<TAD.length;i++){
+  var t=TAD[i];
+  h+='<div class="rowline"><span style="min-width:0;">'+ttl(t)+'<br><span class="mut" style="font-size:11px;">'+esc(t.rarity)+'・'+(t.acquire==='coin'?'🪙'+t.price:'実績: '+esc(t.cond_text||''))+'・所持'+t.owners+'人'+(t.active?'':'・<span class="minus">停止中</span>')+'</span></span>';
+  h+='<span style="flex-shrink:0;"><button class="sb" data-act="tedit" data-id="'+t.id+'">編集</button><button class="sb'+(t.active?' red':'')+'" data-act="ttog" data-id="'+t.id+'">'+(t.active?'停止':'再開')+'</button></span></div>';
+ }
+ h+='<div class="label" style="margin-top:14px;">コイン称号を追加</div>';
+ h+='<input id="taname" placeholder="称号名（10文字まで）">';
+ h+='<div style="display:flex;gap:8px;"><select id="tarare" style="flex:1;"><option value="N">N</option><option value="R">R</option><option value="SR">SR</option><option value="LR">LR</option></select><input id="taprice" type="number" placeholder="必要コイン" style="flex:1;"></div>';
+ h+='<button class="btn" data-act="tadd">追加する</button>';
+ h+='<div class="label" style="margin-top:14px;">称号を手動で付与</div>';
+ h+='<input id="tgnick" placeholder="ニックネーム">';
+ h+='<select id="tgtitle">';
+ for(var j=0;j<TAD.length;j++){h+='<option value="'+TAD[j].id+'">['+esc(TAD[j].rarity)+'] '+esc(TAD[j].name)+'</option>';}
+ h+='</select><button class="btn" data-act="tgrant">付与する</button>';
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
+function taFind(id){for(var i=0;i<TAD.length;i++){if(TAD[i].id===id){return TAD[i];}}return null;}
+function showAdjModal(nick){
+ var h='<div style="font-weight:800;font-size:16px;">レート修正 — '+esc(nick)+'</div>';
+ h+='<input id="adv" type="number" placeholder="増減値（例: -20 / 15）">';
+ h+='<input id="adr" placeholder="理由（任意）">';
+ h+='<button class="btn" data-act="adjgo" data-scope="overall" data-nick="'+esc(nick)+'">通算レートを修正</button>';
+ h+='<button class="btn warn" data-act="adjgo" data-scope="day" data-nick="'+esc(nick)+'">当日レートを修正</button>';
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
 }
 var lpTimer=null,lpFired=0;
 function lpStart(ev){
@@ -348,7 +505,7 @@ document.addEventListener('click',async function(ev){
   else if(act==='create'){
    var n=parseInt(val('ctables'),10);
    var cr=document.getElementById('crated');
-   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n,prated:cr?cr.checked:true});
+   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n,prated:cr?cr.checked:true,pbasis:val('cbasis')||'overall'});
    toastMsg('大会を作成しました');
    await showList();
   }
@@ -397,18 +554,84 @@ document.addEventListener('click',async function(ev){
     await aTick();
    }
   }
-  else if(act==='adj'){
-   var nk2=el.getAttribute('data-nick');
-   var dv=prompt('「'+nk2+'」のレート増減値を入力（例: -20 / 15）');
-   if(dv!==null&&dv!==''){
-    var delta=parseInt(dv,10);
-    if(isNaN(delta)){toastMsg('数値を入力してください');}
-    else{
-     var reason=prompt('理由（任意）')||'';
-     var out=await rpc('admin_adjust_rating',{nick:nk2,delta:delta,reason:reason});
-     toastMsg(out.nickname+' のレートを '+out.rating+' に変更しました');
-     await aTick();
+  else if(act==='adj'){showAdjModal(el.getAttribute('data-nick'));}
+  else if(act==='adjgo'){
+   var delta=parseInt(val('adv'),10);
+   if(isNaN(delta)||delta===0){toastMsg('増減値を入力してください');}
+   else{
+    var scope=el.getAttribute('data-scope');
+    var out=await rpc('admin_adjust_rating',{nick:el.getAttribute('data-nick'),delta:delta,reason:val('adr'),scope:scope});
+    toastMsg(out.nickname+' の'+(scope==='day'?'当日':'通算')+'レートを '+out.rating+' に変更しました');
+    hideModal();await aTick();
+   }
+  }
+  else if(act==='postart'){
+   var sz2=parseInt(val('posize'),10);
+   var th2=document.getElementById('pothird');
+   if(confirm('当日レート上位'+sz2+'人でトーナメントを開始します。進出者の通常マッチングは終了します。よろしいですか？')){
+    await rpc('admin_start_playoff',{tid:curTid,sz:sz2,third:th2?th2.checked:false});
+    toastMsg('トーナメントを開始しました');
+    curView='po';await aTick();
+   }
+  }
+  else if(act==='pocancel'){
+   if(confirm('トーナメントを中止しますか？受付中のベットは全額返還されます。この操作は取り消せません。')){
+    await rpc('admin_cancel_playoff',{tid:curTid});
+    toastMsg('トーナメントを中止しました');
+    await aTick();
+   }
+  }
+  else if(act==='apo'){curView='po';await aTick();}
+  else if(act==='apoback'){curView='dash';await aTick();}
+  else if(act==='apom'){var am=apoFind(el.getAttribute('data-mid'));if(am){showApoForce(am);}}
+  else if(act==='potm'){if(Date.now()-lpFired>800){showPoTmod(parseInt(el.getAttribute('data-no'),10));}}
+  else if(act==='pofres'){
+   if(confirm(el.getAttribute('data-cfm'))){
+    await rpc('admin_playoff_force',{pmid:el.getAttribute('data-mid'),res:el.getAttribute('data-res')});
+    toastMsg('確定しました');
+    hideModal();await aTick();
+   }
+  }
+  else if(act==='titlesadm'){await showTitlesAdmin();}
+  else if(act==='tadd'){
+   var tp3=parseInt(val('taprice'),10);
+   if(!val('taname')){toastMsg('称号名を入力してください');}
+   else if(isNaN(tp3)||tp3<1){toastMsg('必要コインを入力してください');}
+   else{
+    await rpc('admin_save_title',{p_id:null,pname:val('taname'),prarity:val('tarare'),pprice:tp3});
+    toastMsg('称号を追加しました');
+    await showTitlesAdmin();
+   }
+  }
+  else if(act==='tedit'){
+   var te=taFind(parseInt(el.getAttribute('data-id'),10));
+   if(te){
+    var nn2=prompt('称号名',te.name);
+    if(nn2!==null&&nn2.trim()!==''){
+     var np2=te.price;
+     if(te.acquire==='coin'){
+      var pv=prompt('必要コイン',te.price);
+      if(pv!==null&&pv!==''){np2=parseInt(pv,10);}
+     }
+     await rpc('admin_save_title',{p_id:te.id,pname:nn2.trim(),prarity:te.rarity,pprice:np2});
+     toastMsg('称号を更新しました');
+     await showTitlesAdmin();
     }
+   }
+  }
+  else if(act==='ttog'){
+   var tg=taFind(parseInt(el.getAttribute('data-id'),10));
+   if(tg&&(tg.active?confirm('「'+tg.name+'」を停止しますか？新規の獲得・交換ができなくなります（所持者はそのまま）。'):true)){
+    await rpc('admin_toggle_title',{p_id:tg.id});
+    await showTitlesAdmin();
+   }
+  }
+  else if(act==='tgrant'){
+   var tg2=taFind(parseInt(val('tgtitle'),10));
+   if(!val('tgnick')){toastMsg('ニックネームを入力してください');}
+   else if(tg2&&confirm('「'+val('tgnick')+'」に称号「'+tg2.name+'」を付与しますか？')){
+    var go=await rpc('admin_grant_title',{nick:val('tgnick'),p_title:tg2.id});
+    toastMsg(go.nickname+' に「'+go.title+'」を付与しました');
    }
   }
   else if(act==='grant1'||act==='grant0'){
