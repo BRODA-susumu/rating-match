@@ -181,6 +181,7 @@ function renderDash(){
   h+='<button class="btn '+(t.matching_paused?'green':'warn')+'" data-act="pause">'+(t.matching_paused?'募集を再開':'募集を停止')+'</button>';
   h+='<button class="btn gray" data-act="qr">参加QR</button>';
  }
+ h+='<button class="btn gray" data-act="arank">ランキング</button>';
  h+='<button class="btn gray" data-act="csv">CSV出力</button>';
  h+='<button class="btn gray" data-act="rateinfo">レート計算</button>';
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
@@ -456,6 +457,28 @@ function showAdjModal(nick){
  h+='<button class="btn gray" data-act="mclose">閉じる</button>';
  showModal(h);
 }
+async function showRank(){
+ var d=await rpc('admin_ranking',{tid:curTid});
+ var h='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:16px;">ランキング（当日レート順）</span><button class="sb" data-act="arank">更新</button></div>';
+ h+='<div class="mut">'+esc(d.tournament)+'</div>';
+ var rows=d.rows||[];
+ if(rows.length===0){h+='<div class="mut" style="margin-top:8px;">まだ参加者がいません</div>';}
+ for(var i=0;i<rows.length;i++){
+  var r=rows[i];
+  h+='<div style="padding:8px 0;border-bottom:1px solid #262c47;">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;">';
+  h+='<span class="nm" style="min-width:0;"><b style="display:inline-block;width:34px;">'+r.rank+'位</b>'+esc(r.nickname)+'</span>';
+  h+='<span style="text-align:right;flex-shrink:0;"><b style="font-size:15px;">'+r.day+'</b> <span class="mut" style="font-size:10px;">当日</span> <span class="mut" style="font-size:11px;">／通算 '+r.rating+'</span></span></div>';
+  if(r.titles&&r.titles.length){
+   var tb2='';
+   for(var j=0;j<r.titles.length;j++){tb2+=ttl(r.titles[j]);}
+   h+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:2px;margin-left:34px;">'+tb2+'</div>';
+  }
+  h+='</div>';
+ }
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
 var lpTimer=null,lpFired=0;
 function lpStart(ev){
  if(!curTid||!A){return;}
@@ -581,6 +604,7 @@ document.addEventListener('click',async function(ev){
     await aTick();
    }
   }
+  else if(act==='arank'){await showRank();}
   else if(act==='apo'){curView='po';await aTick();}
   else if(act==='apoback'){curView='dash';await aTick();}
   else if(act==='apom'){var am=apoFind(el.getAttribute('data-mid'));if(am){showApoForce(am);}}
