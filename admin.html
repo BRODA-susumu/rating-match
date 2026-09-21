@@ -130,7 +130,7 @@ async function showList(){
  renderList();
 }
 function renderList(){
- var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div></div>';
+ var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div><button class="btn gray" data-act="pwreset">パスワード再発行</button></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
  h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数"><div class="label" style="margin-top:10px;">マッチング基準</div><select id="cbasis"><option value="overall" selected>通算レート基準（常連が有利になりにくい実力マッチ）</option><option value="day">当日レート基準（その日の調子でマッチ）</option></select>';
  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label>';
@@ -617,6 +617,15 @@ document.addEventListener('click',async function(ev){
    }
   }
   else if(act==='titlesadm'){await showTitlesAdmin();}
+  else if(act==='pwreset'){
+   var rn=prompt('パスワードを再発行する参加者のニックネーム');
+   if(rn&&rn.trim()){
+    if(confirm('「'+rn.trim()+'」の仮パスワードを発行します。今のパスワードは使えなくなります。よろしいですか？')){
+     var rr=await rpc('admin_reset_password',{nick:rn.trim()});
+     showModal('<div style="font-weight:800;font-size:16px;">仮パスワードを発行しました</div><div class="mut" style="margin-top:8px;">'+esc(rr.nickname)+' さんに伝えてください</div><div style="font-size:34px;font-weight:900;letter-spacing:4px;text-align:center;margin:16px 0;font-family:monospace;color:#ffd75e;">'+esc(rr.password)+'</div><div class="mut">ログイン後、ホーム画面の「パスワード変更」で変更できます。この画面を閉じると仮パスワードは再表示できません。</div><button class="btn gray" data-act="mclose">閉じる</button>');
+    }
+   }
+  }
   else if(act==='tadd'){
    var tp3=parseInt(val('taprice'),10);
    if(!val('taname')){toastMsg('称号名を入力してください');}

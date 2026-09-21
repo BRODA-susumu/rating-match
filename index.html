@@ -236,7 +236,7 @@ function renderAuth(){
  h+='<input id="pass" type="password" placeholder="パスワード（6文字以上）">';
  h+='<input id="tpw0" placeholder="大会パスワード（任意・あとからでも入力できます）">';
  if(authMode==='register'){h+='<button class="btn" data-act="register">登録してはじめる</button><div class="mut" style="margin-top:8px;">ニックネームは登録後、1回だけ変更できます。同じニックネームは使えません。</div>';}
- else{h+='<button class="btn" data-act="login">ログイン</button>';}
+ else{h+='<button class="btn" data-act="login">ログイン</button><div class="center" style="margin-top:12px;"><span class="mut" style="text-decoration:underline;cursor:pointer;" data-act="forgot">パスワードを忘れた方</span></div>';}
  h+='</div></div>';
  app().innerHTML=h;
 }
@@ -620,7 +620,10 @@ document.addEventListener('click',async function(ev){
  var act=el.getAttribute('data-act');
  busy=true;
  try{
-  if(act==='tab-login'){authMode='login';renderAuth();}
+  if(act==='forgot'){
+   showModal('<div style="font-weight:800;font-size:16px;">パスワードを忘れた方</div><div style="margin-top:10px;font-size:14px;line-height:1.7;">大会会場のスタッフ（主催）に、<b>ニックネーム</b>を伝えてください。仮パスワードを発行します。<br><br>仮パスワードでログインしたあと、ホーム画面下の「パスワード変更」から好きなパスワードに変更できます。<br><span class="mut">レートや称号、コインはそのまま引き継がれます。</span></div><button class="btn gray" data-act="mclose">閉じる</button>');
+  }
+  else if(act==='tab-login'){authMode='login';renderAuth();}
   else if(act==='tab-register'){authMode='register';renderAuth();}
   else if(act==='login'){
    var tp0=val('tpw0');
