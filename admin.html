@@ -191,7 +191,8 @@ function renderDash(){
  }
  h+='<button class="btn gray" data-act="arank">ランキング</button>';
  h+='<button class="btn gray" data-act="csv">CSV出力</button>';
- h+='<div class="inline"><button class="btn gray" data-act="rateinfo">レート計算</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div>';
+ h+='<button class="btn gray" data-act="titlesadm">称号の管理・授与</button>';
+ h+='<button class="btn gray" data-act="rateinfo">レート計算</button>';
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
  h+='</div></div>';
  var po=A.playoff;var elig=A.eligible||0;
