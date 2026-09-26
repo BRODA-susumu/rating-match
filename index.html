@@ -281,10 +281,9 @@ function renderHome(){
   }
   h+='</div>';
  }
- h+='<div class="card"><div class="label">'+(t?'他の大会に参加':'大会に参加')+'</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn'+(t?' gray':'')+'" data-act="join">大会に参加する</button>';
- if(!t){h+='<div class="mut" style="margin-top:8px;">大会パスワードを入力するまで対戦募集はできません。</div>';}
- else{h+='<div class="mut" style="margin-top:8px;">ログアウトせずに複数の大会に参加できます。対戦募集は選択中の大会のみです。</div>';}
- h+='</div>';
+ if(!t){
+  h+='<div class="card"><div class="label">大会に参加</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn" data-act="join">大会に参加する</button><div class="mut" style="margin-top:8px;">大会パスワードを入力するまで対戦募集はできません。</div></div>';
+ }
  if(po){
   h+='<div class="card">';
   if(po.status==='finished'){
@@ -305,6 +304,9 @@ function renderHome(){
  h+='<button class="btn gray" data-act="titles">称号・実績</button>';
  h+='<button class="btn gray" data-act="history">対戦履歴</button>';
  if(t&&(po||t.is_season)){h+='<button class="btn gray" data-act="ranking">ランキング</button>';}
+ if(t){
+  h+='<div class="card" style="margin-top:16px;"><div class="label">他の大会に参加</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn gray" data-act="join">大会に参加する</button><div class="mut" style="margin-top:8px;">ログアウトせずに複数の大会に参加できます。対戦募集は選択中の大会のみです。</div></div>';
+ }
  h+='<div style="display:flex;gap:8px;">';
  if(!p.nickname_changed){h+='<button class="btn gray" data-act="nick" style="font-size:14px;">ニックネーム変更</button>';}
  h+='<button class="btn gray" data-act="pwchg" style="font-size:14px;">パスワード変更</button>';
@@ -531,6 +533,12 @@ function drawTitles(){
  var ownRows='';
  for(var j=0;j<c.length;j++){var tj=c[j];if(tj.owned&&eq.indexOf(tj.id)<0){ownRows+='<span data-act="eq" data-id="'+tj.id+'">'+ttl(tj,true)+'</span>';}}
  h+='<div class="card"><div class="label">所持称号（タップで設定）</div><div class="ttrow" style="margin-top:10px;">'+(ownRows||'<span class="mut">設定できる称号がありません</span>')+'</div></div>';
+ var gift='';
+ for(var g=0;g<c.length;g++){var tg2=c[g];
+  if(tg2.owned&&tg2.portable){
+   gift+='<div class="rowline"><span>'+ttl(tg2,true)+'</span><span class="mut" style="font-size:11px;flex-shrink:0;">'+(tg2.granter?esc(tg2.granter)+'より':'授与')+'</span></div>';
+  }}
+ if(gift){h+='<div class="card"><div class="label">授与された称号（どの大会でも表示できます）</div>'+gift+'</div>';}
  var shop='';
  for(var k=0;k<c.length;k++){var tk=c[k];
   if(tk.acquire==='coin'&&!tk.owned&&tk.active){
