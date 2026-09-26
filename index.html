@@ -240,26 +240,50 @@ function renderAuth(){
  h+='</div></div>';
  app().innerHTML=h;
 }
+function dayLabel(t){return (t&&t.is_season)?'シーズンレート':'当日レート';}
+function fmtDue(iso){
+ var ms=Date.parse(iso)-(Date.now()+offset);
+ if(ms<=0){return 'まもなく減衰';}
+ var hh=Math.floor(ms/3600000);
+ if(hh>=24){return 'あと'+Math.floor(hh/24)+'日'+(hh%24)+'時間';}
+ if(hh>=1){return 'あと'+hh+'時間';}
+ return 'あと'+Math.max(1,Math.floor(ms/60000))+'分';
+}
 function renderHome(){
  var p=S.profile;var t=S.tournament;var po=S.playoff;
  var keepEl=document.getElementById('tpw');var keep=keepEl?keepEl.value:'';
+ var ts=S.tournaments||[];
  var h='<div class="wrap">';
  h+='<div class="card"><div class="label">ニックネーム</div><div style="font-size:20px;font-weight:700;">'+esc(p.nickname)+(p.is_admin?' <span class="badge">主催</span>':'')+'</div>';
  h+=ttlRow(p.titles,false);
  h+='<div style="display:flex;gap:20px;margin-top:12px;align-items:flex-end;flex-wrap:wrap;">';
- h+='<div><div class="label">通算レート</div><div class="rate">'+p.rating+'</div></div>';
- if(t&&p.day!==null&&p.day!==undefined){h+='<div><div class="label">当日レート</div><div class="rate" style="font-size:30px;">'+p.day+'</div></div>';}
+ if(t){h+='<div><div class="label">通算レート</div><div class="rate">'+p.rating+'</div></div>';}
+ if(t&&p.day!==null&&p.day!==undefined){h+='<div><div class="label">'+dayLabel(t)+'</div><div class="rate" style="font-size:30px;">'+p.day+'</div></div>';}
  h+='<div style="margin-left:auto;"><div class="label">コイン</div><div class="coin" style="font-size:24px;">'+p.coins+'</div></div>';
  h+='</div></div>';
  if(t){
-  h+='<div class="card"><div class="label">参加中の大会</div><div style="font-size:17px;font-weight:700;">'+esc(t.name)+'</div>';
+  h+='<div class="card"><div class="label">参加中の大会</div><div style="font-size:17px;font-weight:700;">'+esc(t.name)+(t.is_season?' <span class="badge">シーズン</span>':'')+'</div>';
   if(t.rated===false){h+='<div class="mut" style="margin-top:6px;">交流会モード（レート変動なし）</div>';}
+  else if(t.is_season){h+='<div class="mut" style="margin-top:6px;">マッチング基準: シーズンレート</div>';}
   else if(t.match_basis==='day'){h+='<div class="mut" style="margin-top:6px;">マッチング基準: 当日レート</div>';}
+  if(t.is_season&&t.decay_due){
+   h+='<div style="margin-top:8px;background:#2c1f1f;border:1px solid #6b3b3b;border-radius:10px;padding:10px;font-size:13px;">';
+   h+='⏳ 次のレート減衰まで <b>'+fmtDue(t.decay_due)+'</b><br><span class="mut">'+t.decay_days+'日対戦しないと、2000を超えた分の'+t.decay_pct+'%が減ります</span></div>';
+  }
   if(t.matching_paused){h+='<div class="mut" style="margin-top:6px;">現在、対戦募集は停止中です</div>';}
+  if(ts.length>1){
+   h+='<div class="label" style="margin-top:12px;">大会を切り替える</div><div style="display:flex;gap:8px;overflow-x:auto;padding:6px 0 2px;">';
+   for(var i=0;i<ts.length;i++){
+    h+='<button class="sb" style="white-space:nowrap;'+(ts[i].active?'background:#3b5bfd;color:#fff;':'')+'" data-act="switcht" data-tid="'+esc(ts[i].id)+'">'+esc(ts[i].name)+'</button>';
+   }
+   h+='</div>';
+  }
   h+='</div>';
- }else{
-  h+='<div class="card"><div class="label">大会に参加</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn" data-act="join">大会に参加する</button><div class="mut" style="margin-top:8px;">大会パスワードを入力するまで対戦募集はできません。</div></div>';
  }
+ h+='<div class="card"><div class="label">'+(t?'他の大会に参加':'大会に参加')+'</div><input id="tpw" placeholder="大会パスワード" value="'+esc(keep)+'"><button class="btn'+(t?' gray':'')+'" data-act="join">大会に参加する</button>';
+ if(!t){h+='<div class="mut" style="margin-top:8px;">大会パスワードを入力するまで対戦募集はできません。</div>';}
+ else{h+='<div class="mut" style="margin-top:8px;">ログアウトせずに複数の大会に参加できます。対戦募集は選択中の大会のみです。</div>';}
+ h+='</div>';
  if(po){
   h+='<div class="card">';
   if(po.status==='finished'){
@@ -279,7 +303,7 @@ function renderHome(){
  if(po&&po.alive){h+='<div class="mut center" style="margin-top:6px;">トーナメント進行中は対戦募集できません</div>';}
  h+='<button class="btn gray" data-act="titles">称号・実績</button>';
  h+='<button class="btn gray" data-act="history">対戦履歴</button>';
- if(t&&po){h+='<button class="btn gray" data-act="ranking">ランキング</button>';}
+ if(t&&(po||t.is_season)){h+='<button class="btn gray" data-act="ranking">ランキング</button>';}
  h+='<div style="display:flex;gap:8px;">';
  if(!p.nickname_changed){h+='<button class="btn gray" data-act="nick" style="font-size:14px;">ニックネーム変更</button>';}
  h+='<button class="btn gray" data-act="pwchg" style="font-size:14px;">パスワード変更</button>';
@@ -298,8 +322,9 @@ function renderQueue(){
 function oppBlock(o,myR,myD){
  var h='<div class="card"><div style="display:flex;align-items:center;gap:8px;"><span class="mut">対戦相手</span><b style="font-size:17px;">'+esc(o.nickname)+'</b></div>';
  h+=ttlRow(o.titles,false);
- h+='<div class="rowline" style="margin-top:6px;"><span class="mut">相手のレート</span><b>通算 '+o.rating+(o.day!==null&&o.day!==undefined?' ／ 当日 '+o.day:'')+'</b></div>';
- h+='<div class="rowline" style="border-bottom:0;"><span class="mut">あなたのレート</span><b>通算 '+myR+(myD!==null&&myD!==undefined?' ／ 当日 '+myD:'')+'</b></div></div>';
+ var dl=(S.tournament&&S.tournament.is_season)?'season':'当日';
+ h+='<div class="rowline" style="margin-top:6px;"><span class="mut">相手のレート</span><b>通算 '+o.rating+(o.day!==null&&o.day!==undefined?' ／ '+dl+' '+o.day:'')+'</b></div>';
+ h+='<div class="rowline" style="border-bottom:0;"><span class="mut">あなたのレート</span><b>通算 '+myR+(myD!==null&&myD!==undefined?' ／ '+dl+' '+myD:'')+'</b></div></div>';
  return h;
 }
 function renderMatch(m){
@@ -373,7 +398,7 @@ function renderResult(lr){
   var d=lr.my_delta;var dd=lr.my_day_delta;
   h+='<div style="margin-top:14px;" class="label">レート変動</div>';
   h+='<div style="font-size:28px;font-weight:800;" class="'+(d>=0?'plus':'minus')+'">通算 '+(d>=0?'+':'')+d+'</div>';
-  if(dd!==null&&dd!==undefined){h+='<div style="font-size:22px;font-weight:800;" class="'+(dd>=0?'plus':'minus')+'">当日 '+(dd>=0?'+':'')+dd+'</div>';}
+  if(dd!==null&&dd!==undefined){h+='<div style="font-size:22px;font-weight:800;" class="'+(dd>=0?'plus':'minus')+'">'+(S.tournament&&S.tournament.is_season?'season':'当日')+' '+(dd>=0?'+':'')+dd+'</div>';}
  }
  if(lr.coins){h+='<div class="label" style="margin-top:12px;">獲得コイン</div><div class="coin" style="font-size:24px;">+'+lr.coins+'</div>';}
  h+='<div class="label" style="margin-top:10px;">現在レート</div><div style="font-size:26px;font-weight:800;">通算 '+S.profile.rating+(S.profile.day!==null&&S.profile.day!==undefined?' ／ 当日 '+S.profile.day:'')+'</div></div>';
@@ -471,7 +496,7 @@ async function renderRanking(){
  app().innerHTML='<div class="wrap"><div class="card center mut">読み込み中…</div></div>';
  try{
   var data=await rpc('get_ranking');
-  var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;">ランキング</div><div class="mut" style="margin-bottom:6px;">'+esc(data.tournament)+'（当日レート順）</div>';
+  var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;">ランキング</div><div class="mut" style="margin-bottom:6px;">'+esc(data.tournament)+'（'+(data.season?'シーズン':'当日')+'レート順）</div>';
   var rows=data.rows||[];
   if(rows.length===0){h+='<div class="mut">まだ参加者がいません。</div>';}
   for(var i=0;i<rows.length;i++){
@@ -479,7 +504,7 @@ async function renderRanking(){
    h+='<div style="padding:9px 0;border-bottom:1px solid #262c47;'+(r.me?'background:#232a4a;border-radius:8px;padding-left:8px;padding-right:8px;':'')+'">';
    h+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:15px;">';
    h+='<span class="nm2" style="min-width:0;"><b style="display:inline-block;width:34px;">'+r.rank+'位</b>'+esc(r.nickname)+(r.me?' <span class="badge">自分</span>':'')+'<br><span class="mut" style="font-size:11px;margin-left:34px;">'+recStr(r)+'</span></span>';
-   h+='<span style="text-align:right;flex-shrink:0;"><b style="font-size:16px;">'+r.day+'</b> <span class="mut" style="font-size:10px;">当日</span><br><span class="mut" style="font-size:11px;">通算 '+r.rating+'</span></span></div>';
+   h+='<span style="text-align:right;flex-shrink:0;"><b style="font-size:16px;">'+r.day+'</b> <span class="mut" style="font-size:10px;">'+(data.season?'season':'当日')+'</span><br><span class="mut" style="font-size:11px;">通算 '+r.rating+(data.season&&r.idle_h!==null&&r.idle_h!==undefined?' ・'+(r.idle_h>=24?Math.floor(r.idle_h/24)+'日':r.idle_h+'時間')+'未対戦':'')+'</span></span></div>';
    if(r.titles&&r.titles.length){h+='<div class="ttrow" style="margin-top:2px;margin-left:34px;">'+r.titles.map(function(tt2){return ttl(tt2,false);}).join('')+'</div>';}
    h+='</div>';
   }
@@ -642,7 +667,8 @@ document.addEventListener('click',async function(ev){
     else{if(tp1){pendingTp=tp1;}startApp();}
    }
   }
-  else if(act==='join'){await rpc('join_tournament',{pw:val('tpw')});toastMsg('大会に参加しました');await poll();}
+  else if(act==='join'){var jr=await rpc('join_tournament',{pw:val('tpw')});toastMsg('「'+jr.name+'」に参加しました');await poll();}
+  else if(act==='switcht'){var sr=await rpc('select_tournament',{tid:el.getAttribute('data-tid')});toastMsg('「'+sr.name+'」に切り替えました');await poll();}
   else if(act==='queue'){await rpc('enqueue');await poll();}
   else if(act==='cancel'){await rpc('cancel_queue');await poll();}
   else if(act==='start'){await rpc('press_start',{mid:S.match.id});await poll();}

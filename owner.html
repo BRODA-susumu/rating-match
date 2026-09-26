@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>大管理者コンソール</title>
+<style>
+:root{color-scheme:dark;}
+body{margin:0;font-family:system-ui,-apple-system,'Hiragino Sans',sans-serif;background:#0f1220;color:#f2f4ff;}
+.wrap{max-width:720px;margin:0 auto;padding:16px;padding-top:calc(16px + env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom));}
+.card{background:#1a1f33;border-radius:16px;padding:16px;margin-bottom:12px;}
+.btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;font-size:16px;font-weight:700;color:#fff;background:#3b5bfd;margin-top:10px;}
+.btn.gray{background:#2a3050;}.btn.red{background:#e0405a;}.btn.warn{background:#c9871f;}
+.sb{padding:7px 11px;border-radius:99px;border:0;font-size:12px;font-weight:700;color:#cdd4f5;background:#2a3050;margin-left:6px;}
+.sb.red{background:#5a1f2c;color:#ffb3bd;}
+.label{font-size:12px;color:#9aa3c7;letter-spacing:0.05em;}
+.mut{color:#9aa3c7;font-size:13px;}
+.rowline{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #262c47;font-size:14px;gap:8px;}
+.nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+input,select{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #2a3050;background:#12162a;color:#fff;font-size:16px;margin-top:8px;}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;background:#2a3050;color:#cdd4f5;}
+.badge.g{background:#123a28;color:#7de8b6;}
+.badge.y{background:#4d3d10;color:#ffe9b0;}
+.stat{display:flex;gap:14px;flex-wrap:wrap;}
+.stat>div{background:#12162a;border-radius:12px;padding:10px 14px;flex:1;min-width:90px;}
+.stat b{font-size:22px;}
+.coin{color:#ffd75e;font-weight:800;}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:#3b5bfd;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;display:none;z-index:50;text-align:center;}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:40;overflow:auto;padding:16px;}
+#mbox{max-width:460px;margin:30px auto;background:#1a1f33;border-radius:16px;padding:18px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal"><div id="mbox"></div></div>
+<div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+var SUPA_URL='https://oebpqvuovmhrdjlkpspj.supabase.co';
+var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9lYnBxdnVvdm1ocmRqbGtwc3BqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5MTE1NjEsImV4cCI6MjEwNTQ4NzU2MX0.NZz2opTMAt6pcI-zPSLgAOLXvB5D80qkGcD6Jnj1Brw';
+var sb=window.supabase.createClient(SUPA_URL,ANON);
+var O=null,busy=false,tab='owners',users=null,uq='';
+function app(){return document.getElementById('app');}
+function esc(s){s=String(s===null||s===undefined?'':s);var o='',i,c;for(i=0;i<s.length;i++){c=s.charAt(i);if(c==='<'){o+='&lt;';}else if(c==='>'){o+='&gt;';}else if(c==='&'){o+='&amp;';}else if(c==='"'){o+='&quot;';}else{o+=c;}}return o;}
+function toastMsg(t){var el=document.getElementById('toast');el.textContent=t;el.style.display='block';clearTimeout(window._tt);window._tt=setTimeout(function(){el.style.display='none';},3500);}
+function errMsg(e){if(!e){return 'エラーが発生しました';}return e.message||String(e);}
+async function rpc(n,a){var r=await sb.rpc(n,a||{});if(r.error){throw r.error;}return r.data;}
+function val(id){var e=document.getElementById(id);return e?e.value.trim():'';}
+function showModal(h){document.getElementById('mbox').innerHTML=h;document.getElementById('modal').style.display='block';}
+function hideModal(){document.getElementById('modal').style.display='none';}
+function fmtDate(iso){if(!iso){return '';}var d=new Date(iso);return (d.getMonth()+1)+'/'+d.getDate();}
+async function boot(){var s=await sb.auth.getSession();if(s.data.session){await load();}else{renderAuth();}}
+sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT'){O=null;renderAuth();}});
+function renderAuth(){
+ app().innerHTML='<div class="wrap"><div class="card"><div style="font-size:20px;font-weight:800;">大管理者コンソール</div><div class="mut">Rating Match System</div>'+
+ '<input id="email" type="email" placeholder="メールアドレス"><input id="pass" type="password" placeholder="パスワード">'+
+ '<button class="btn" data-act="login">ログイン</button></div></div>';
+}
+async function load(){
+ try{O=await rpc('super_overview');render();}
+ catch(e){
+  app().innerHTML='<div class="wrap"><div class="card"><div style="font-weight:800;">アクセスできません</div><div class="mut" style="margin-top:8px;">'+esc(errMsg(e))+'</div><button class="btn gray" data-act="logout">ログアウト</button></div></div>';
+ }
+}
+function render(){
+ var s=O.stats;
+ var h='<div class="wrap">';
+ h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-size:18px;font-weight:800;">大管理者コンソール</div><button class="sb" data-act="reload">更新</button></div>';
+ h+='<div class="stat" style="margin-top:12px;">';
+ h+='<div><div class="label">ユーザー</div><b>'+s.users+'</b></div>';
+ h+='<div><div class="label">小管理者</div><b>'+s.owners+'</b></div>';
+ h+='<div><div class="label">開催中</div><b>'+s.active_tournaments+'</b></div>';
+ h+='<div><div class="label">総対戦数</div><b>'+s.matches_total+'</b></div>';
+ h+='</div></div>';
+ h+='<div style="display:flex;gap:8px;margin-bottom:12px;">';
+ h+='<button class="btn '+(tab==='owners'?'':'gray')+'" style="margin-top:0;" data-act="tab" data-t="owners">小管理者</button>';
+ h+='<button class="btn '+(tab==='tours'?'':'gray')+'" style="margin-top:0;" data-act="tab" data-t="tours">全大会</button>';
+ h+='<button class="btn '+(tab==='users'?'':'gray')+'" style="margin-top:0;" data-act="tab" data-t="users">ユーザー</button>';
+ h+='</div>';
+ if(tab==='owners'){
+  h+='<div class="card"><div class="label">小管理者（それぞれ独立したレート・称号・戦績を持ちます）</div>';
+  var ow=O.owners||[];
+  for(var i=0;i<ow.length;i++){
+   var o=ow[i];
+   h+='<div class="rowline"><span class="nm"><b>'+esc(o.nickname)+'</b>'+(o.is_super?' <span class="badge y">大管理者</span>':'')+
+     '<br><span class="mut" style="font-size:11px;">大会'+o.tournaments+'件（開催中'+o.active+'） ・ 参加者'+o.players+'人 ・ 称号'+o.titles+'種</span></span>';
+   if(!o.is_super){h+='<button class="sb red" data-act="unowner" data-nick="'+esc(o.nickname)+'">権限解除</button>';}
+   h+='</div>';
+  }
+  h+='<div class="label" style="margin-top:14px;">小管理者を任命</div>';
+  h+='<input id="onick" placeholder="ニックネーム">';
+  h+='<button class="btn" data-act="mkowner">小管理者にする</button>';
+  h+='<div class="mut" style="font-size:11px;margin-top:6px;">任命すると称号28種のひな形が複製され、その人専用の世界ができます。他の小管理者には影響しません。</div></div>';
+ }
+ if(tab==='tours'){
+  h+='<div class="card"><div class="label">全ての大会（すべて管理・調整できます）</div>';
+  var ts=O.tournaments||[];
+  if(ts.length===0){h+='<div class="mut" style="margin-top:6px;">まだ大会がありません</div>';}
+  for(var j=0;j<ts.length;j++){
+   var t=ts[j];
+   h+='<div class="rowline"><span class="nm"><b>'+esc(t.name)+'</b> '+(t.status==='active'?'<span class="badge g">開催中</span>':'<span class="badge">終了</span>')+
+     (t.is_season?' <span class="badge">シーズン</span>':'')+(t.rated===false?' <span class="badge">交流会</span>':'')+
+     '<br><span class="mut" style="font-size:11px;">主催: '+esc(t.owner||'—')+' ・ 参加'+t.participants+'人 ・ 対戦'+t.matches+'件 ・ PW: '+esc(t.password)+' ・ '+fmtDate(t.created_at)+'</span></span>';
+   h+='<span style="flex-shrink:0;"><button class="sb" data-act="manage" data-tid="'+esc(t.id)+'">管理</button>';
+   if(t.status!=='active'){h+='<button class="sb red" data-act="delt" data-tid="'+esc(t.id)+'" data-name="'+esc(t.name)+'">削除</button>';}
+   h+='</span></div>';
+  }
+  h+='<div class="mut" style="font-size:11px;margin-top:8px;">「管理」を押すと主催画面が開き、その大会のレート・戦績・コイン・卓・結果をすべて調整できます。</div></div>';
+ }
+ if(tab==='users'){
+  h+='<div class="card"><div class="label">ユーザー検索</div>';
+  h+='<input id="uq" placeholder="ニックネーム（空欄で全件）" value="'+esc(uq)+'">';
+  h+='<button class="btn gray" data-act="usearch">検索</button>';
+  if(users){
+   for(var k=0;k<users.length;k++){
+    var u=users[k];
+    var rl='';
+    for(var m2=0;m2<(u.realms||[]).length;m2++){rl+=(rl?' / ':'')+esc(u.realms[m2].owner)+': '+u.realms[m2].rating;}
+    h+='<div class="rowline"><span class="nm"><b>'+esc(u.nickname)+'</b>'+(u.is_super?' <span class="badge y">大管理者</span>':(u.is_owner?' <span class="badge">小管理者</span>':''))+
+      '<br><span class="mut" style="font-size:11px;"><span class="coin">🪙'+u.coins+'</span>'+(rl?' ・ '+rl:'')+'</span></span>';
+    h+='<span style="flex-shrink:0;"><button class="sb" data-act="coins" data-nick="'+esc(u.nickname)+'">コイン</button><button class="sb" data-act="pwr" data-nick="'+esc(u.nickname)+'">PW再発行</button></span></div>';
+   }
+   if(users.length===0){h+='<div class="mut" style="margin-top:8px;">該当なし</div>';}
+  }
+  h+='</div>';
+ }
+ h+='<button class="btn gray" data-act="logout">ログアウト</button></div>';
+ app().innerHTML=h;
+}
+document.addEventListener('click',async function(ev){
+ var el=ev.target.closest('[data-act]');
+ if(!el||busy){return;}
+ var act=el.getAttribute('data-act');
+ busy=true;
+ try{
+  if(act==='login'){
+   var r=await sb.auth.signInWithPassword({email:val('email'),password:val('pass')});
+   if(r.error){toastMsg('ログインに失敗しました');}else{await load();}
+  }
+  else if(act==='logout'){await sb.auth.signOut();}
+  else if(act==='reload'){await load();toastMsg('最新の状態にしました');}
+  else if(act==='tab'){tab=el.getAttribute('data-t');render();}
+  else if(act==='mkowner'){
+   var nk=val('onick');
+   if(!nk){toastMsg('ニックネームを入力してください');}
+   else if(confirm('「'+nk+'」を小管理者にします。称号28種のひな形が複製され、自分の大会を作れるようになります。よろしいですか？')){
+    var o1=await rpc('super_set_owner',{nick:nk,g:true});
+    toastMsg(o1.nickname+' を小管理者にしました'+(o1.titles_seeded?'（称号'+o1.titles_seeded+'種を複製）':''));
+    await load();
+   }
+  }
+  else if(act==='unowner'){
+   var nk2=el.getAttribute('data-nick');
+   if(confirm('「'+nk2+'」の小管理者権限を解除しますか？\n既存の大会・レート・称号のデータは残ります（新しい大会が作れなくなります）。')){
+    await rpc('super_set_owner',{nick:nk2,g:false});
+    toastMsg('権限を解除しました');
+    await load();
+   }
+  }
+  else if(act==='manage'){location.href='admin.html?tid='+el.getAttribute('data-tid');}
+  else if(act==='delt'){
+   if(confirm('大会「'+el.getAttribute('data-name')+'」を完全に削除します。\n対戦記録・参加者情報も消え、取り消せません。よろしいですか？')){
+    await rpc('super_delete_tournament',{tid:el.getAttribute('data-tid')});
+    toastMsg('削除しました');
+    await load();
+   }
+  }
+  else if(act==='usearch'){uq=val('uq');users=await rpc('super_user_search',{q:uq});render();}
+  else if(act==='coins'){
+   var cn=el.getAttribute('data-nick');
+   showModal('<div style="font-weight:800;font-size:16px;">コイン調整 — '+esc(cn)+'</div><input id="cdelta" type="number" placeholder="増減値（例: 500 / -200）"><input id="creason" placeholder="理由（任意）"><button class="btn" data-act="coingo" data-nick="'+esc(cn)+'">反映する</button><button class="btn gray" data-act="mclose">やめる</button>');
+  }
+  else if(act==='coingo'){
+   var cd=parseInt(val('cdelta'),10);
+   if(isNaN(cd)||cd===0){toastMsg('増減値を入力してください');}
+   else{
+    var c1=await rpc('super_set_coins',{nick:el.getAttribute('data-nick'),delta:cd,reason:val('creason')});
+    toastMsg(c1.nickname+' のコインを '+c1.coins+' にしました');
+    hideModal();users=await rpc('super_user_search',{q:uq});render();
+   }
+  }
+  else if(act==='pwr'){
+   var pn=el.getAttribute('data-nick');
+   if(confirm('「'+pn+'」の仮パスワードを発行しますか？今のパスワードは使えなくなります。')){
+    var pr=await rpc('admin_reset_password',{nick:pn});
+    showModal('<div style="font-weight:800;font-size:16px;">仮パスワードを発行しました</div><div class="mut" style="margin-top:8px;">'+esc(pr.nickname)+' さんに伝えてください</div><div style="font-size:32px;font-weight:900;letter-spacing:4px;text-align:center;margin:16px 0;font-family:monospace;color:#ffd75e;">'+esc(pr.password)+'</div><div class="mut">ログイン後、本人がホーム画面から変更できます。</div><button class="btn gray" data-act="mclose">閉じる</button>');
+   }
+  }
+  else if(act==='mclose'){hideModal();}
+ }catch(e){toastMsg(errMsg(e));}
+ busy=false;
+});
+boot();
+</script>
+</body>
+</html>

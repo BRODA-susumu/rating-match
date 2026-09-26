@@ -132,7 +132,7 @@ async function showList(){
 function renderList(){
  var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div><button class="btn gray" data-act="pwreset">パスワード再発行</button></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
- h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数"><div class="label" style="margin-top:10px;">マッチング基準</div><select id="cbasis"><option value="overall" selected>通算レート基準（常連が有利になりにくい実力マッチ）</option><option value="day">当日レート基準（その日の調子でマッチ）</option></select>';
+ h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数"><div class="label" style="margin-top:10px;">マッチング基準</div><select id="cbasis"><option value="overall" selected>通算レート基準（常連が有利になりにくい実力マッチ）</option><option value="day">当日レート基準（その日の調子でマッチ）</option></select><label class="inline" style="margin-top:10px;gap:8px;align-items:center;font-size:14px;"><input type="checkbox" id="cseason" style="width:auto;margin:0;" data-act="seasontog">シーズンモード（長期開催・オンライン向け）</label><div id="seasonbox" style="display:none;background:#12162a;border-radius:12px;padding:10px;margin-top:8px;"><div class="mut" style="font-size:12px;">当日レートが「シーズンレート」になり、マッチングと上位選出もシーズンレートを参照します。一定期間対戦しないとレートが自動で下がります（最後に勝敗報告した時点から計算）。</div><div class="inline" style="margin-top:8px;"><div style="flex:1;"><div class="label">何日対戦しないと減衰</div><input id="cdays" type="number" value="3" style="margin-top:4px;"></div><div style="flex:1;"><div class="label">減衰率（%）</div><input id="cpct" type="number" value="20" style="margin-top:4px;"></div></div><div class="mut" style="font-size:11px;margin-top:6px;">2000を超えた分に対して減衰します（2000未満にはなりません）。期間が過ぎるごとに繰り返し適用されます。</div></div>';
  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label>';
  h+='<button class="btn" data-act="create">大会を作成</button></div>';
  h+='<div class="label" style="margin:6px 4px;">大会一覧（タップで管理）</div>';
@@ -142,7 +142,7 @@ function renderList(){
    var t=listCache[i];
    h+='<div class="card" data-act="open" data-tid="'+t.id+'" style="cursor:pointer;">';
    h+='<div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:16px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
-   h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+' ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
+   h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+(t.is_season?' ・ <span style="color:#7de8b6;">シーズン</span>':'')+(t.mine?'':' ・ <span style="color:#ffe9b0;">スタッフ</span>')+(t.owner&&!t.mine?' ・ 主催: '+esc(t.owner):'')+' ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
    h+='</div>';
   }
  }
@@ -175,7 +175,7 @@ function renderDash(){
  var h='<div class="wrap">';
  h+='<button class="sb" data-act="back-list" style="margin:0 0 10px;">← 大会一覧へ</button>';
  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:17px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
- h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':(t.match_basis==='day'?'（当日基準）':''))+' ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
+ h+='<div class="mut" style="margin-top:6px;">PW: '+esc(t.password)+' ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':(t.is_season?'（シーズン）':(t.match_basis==='day'?'（当日基準）':'')))+' ・ 参加 '+(A.participants?A.participants.length:0)+'人 ・ 待機 '+(A.queue?A.queue.length:0)+'人'+(t.matching_paused?' ・ <span class="minus">募集停止中</span>':'')+'</div>';
  h+='<div class="inline">';
  if(t.status==='active'){
   h+='<button class="btn '+(t.matching_paused?'green':'warn')+'" data-act="pause">'+(t.matching_paused?'募集を再開':'募集を停止')+'</button>';
@@ -424,7 +424,7 @@ function showPoTmod(no){
  showModal(h);
 }
 async function showTitlesAdmin(){
- TAD=await rpc('admin_list_titles');
+ TAD=await rpc('admin_list_titles',{tid:curTid});
  drawTA();
 }
 function drawTA(){
@@ -528,7 +528,8 @@ document.addEventListener('click',async function(ev){
   else if(act==='create'){
    var n=parseInt(val('ctables'),10);
    var cr=document.getElementById('crated');
-   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n,prated:cr?cr.checked:true,pbasis:val('cbasis')||'overall'});
+   var cs=document.getElementById('cseason');
+   await rpc('admin_create_tournament',{pname:val('cname'),ppw:val('cpw'),ptables:n,prated:cr?cr.checked:true,pbasis:val('cbasis')||'overall',pseason:cs?cs.checked:false,pdays:parseInt(val('cdays'),10)||3,ppct:parseInt(val('cpct'),10)||20});
    toastMsg('大会を作成しました');
    await showList();
   }
@@ -583,7 +584,7 @@ document.addEventListener('click',async function(ev){
    if(isNaN(delta)||delta===0){toastMsg('増減値を入力してください');}
    else{
     var scope=el.getAttribute('data-scope');
-    var out=await rpc('admin_adjust_rating',{nick:el.getAttribute('data-nick'),delta:delta,reason:val('adr'),scope:scope});
+    var out=await rpc('admin_adjust_rating',{tid:curTid,nick:el.getAttribute('data-nick'),delta:delta,reason:val('adr'),scope:scope});
     toastMsg(out.nickname+' の'+(scope==='day'?'当日':'通算')+'レートを '+out.rating+' に変更しました');
     hideModal();await aTick();
    }
@@ -631,7 +632,7 @@ document.addEventListener('click',async function(ev){
    if(!val('taname')){toastMsg('称号名を入力してください');}
    else if(isNaN(tp3)||tp3<1){toastMsg('必要コインを入力してください');}
    else{
-    await rpc('admin_save_title',{p_id:null,pname:val('taname'),prarity:val('tarare'),pprice:tp3});
+    await rpc('admin_save_title',{tid:curTid,p_id:null,pname:val('taname'),prarity:val('tarare'),pprice:tp3});
     toastMsg('称号を追加しました');
     await showTitlesAdmin();
    }
@@ -646,7 +647,7 @@ document.addEventListener('click',async function(ev){
       var pv=prompt('必要コイン',te.price);
       if(pv!==null&&pv!==''){np2=parseInt(pv,10);}
      }
-     await rpc('admin_save_title',{p_id:te.id,pname:nn2.trim(),prarity:te.rarity,pprice:np2});
+     await rpc('admin_save_title',{tid:curTid,p_id:te.id,pname:nn2.trim(),prarity:te.rarity,pprice:np2});
      toastMsg('称号を更新しました');
      await showTitlesAdmin();
     }
@@ -655,7 +656,7 @@ document.addEventListener('click',async function(ev){
   else if(act==='ttog'){
    var tg=taFind(parseInt(el.getAttribute('data-id'),10));
    if(tg&&(tg.active?confirm('「'+tg.name+'」を停止しますか？新規の獲得・交換ができなくなります（所持者はそのまま）。'):true)){
-    await rpc('admin_toggle_title',{p_id:tg.id});
+    await rpc('admin_toggle_title',{tid:curTid,p_id:tg.id});
     await showTitlesAdmin();
    }
   }
@@ -663,7 +664,7 @@ document.addEventListener('click',async function(ev){
    var tg2=taFind(parseInt(val('tgtitle'),10));
    if(!val('tgnick')){toastMsg('ニックネームを入力してください');}
    else if(tg2&&confirm('「'+val('tgnick')+'」に称号「'+tg2.name+'」を付与しますか？')){
-    var go=await rpc('admin_grant_title',{nick:val('tgnick'),p_title:tg2.id});
+    var go=await rpc('admin_grant_title',{tid:curTid,nick:val('tgnick'),p_title:tg2.id});
     toastMsg(go.nickname+' に「'+go.title+'」を付与しました');
    }
   }
