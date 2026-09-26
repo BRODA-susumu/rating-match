@@ -106,6 +106,14 @@ async function afterLogin(){
   var st=await rpc('get_state');
   ME=st.profile;
   if(!ME.is_admin){renderClaim();return;}
+  var tid0=null;
+  try{tid0=new URLSearchParams(location.search).get('tid');}catch(e0){}
+  if(tid0){
+   try{history.replaceState(null,'',location.pathname);}catch(e1){}
+   listCache=await rpc('admin_list_tournaments');
+   await openDash(tid0);
+   return;
+  }
   await showList();
  }catch(e){toastMsg(errMsg(e));renderAuth();}
 }
