@@ -247,7 +247,7 @@ function renderDash(){
   }
   h+='</div>';
  }
- h+='<div class="card"><div class="label">最近の結果（タップで修正）</div>';
+ h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div class="label">最近の結果（タップで修正）</div><button class="sb" data-act="log">全ての結果</button></div>';
  if(!A.recent||A.recent.length===0){h+='<div class="mut" style="margin-top:6px;">まだ結果がありません</div>';}
  else{
   for(var i3=0;i3<A.recent.length;i3++){
@@ -307,6 +307,7 @@ function showTmod(no){
 function showFix(mid){
  var r=null;
  for(var i=0;i<A.recent.length;i++){if(A.recent[i].id===mid){r=A.recent[i];}}
+ if(!r&&LOG){for(var i2=0;i2<LOG.length;i2++){if(LOG[i2].id===mid){r=LOG[i2];}}}
  if(!r){return;}
  var h='<div style="font-weight:800;font-size:16px;">結果の修正 — テーブル '+r.table_no+'</div>';
  h+='<div class="mut" style="margin-top:6px;">'+esc(r.p1)+' vs '+esc(r.p2)+'<br>現在: '+resultText(r.result,r.p1,r.p2)+'</div>';
@@ -529,6 +530,37 @@ async function showUser(uid){
  h+='<button class="btn gray" data-act="mclose">閉じる</button>';
  showModal(h);
 }
+var LOG=null,logOff=0,logQ='',logTotal=0;
+function logRow(r){
+ var d=new Date(r.at);
+ var dt=(d.getMonth()+1)+'/'+d.getDate()+' '+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();
+ var h='<div class="rowline" data-act="fixmod" data-mid="'+r.id+'" style="cursor:pointer;">';
+ h+='<span class="nm" style="min-width:0;"><span class="mut" style="font-size:11px;">'+dt+' 卓'+r.table_no+'</span><br>'+esc(r.p1)+' vs '+esc(r.p2)+'<br><b style="font-size:12px;">'+resultText(r.result,r.p1,r.p2)+'</b></span>';
+ h+='<span class="mut" style="font-size:12px;text-align:right;flex-shrink:0;">'+(r.p1_delta>=0?'+':'')+r.p1_delta+' / '+(r.p2_delta>=0?'+':'')+r.p2_delta+(r.skipped?'<br><span style="color:#ffe9b0;">連戦上限</span>':'')+'</span></div>';
+ return h;
+}
+async function showLog(reset){
+ if(reset){logOff=0;LOG=null;}
+ var d=await rpc('admin_match_log',{tid:curTid,p_limit:50,p_offset:logOff,q:logQ||null});
+ logTotal=d.total;
+ LOG=(logOff===0?[]:(LOG||[])).concat(d.rows||[]);
+ var h='<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;font-size:16px;">全ての対戦結果</span><span class="mut">'+logTotal+'件</span></div>';
+ h+='<input id="logq" placeholder="ニックネームで絞り込み" value="'+esc(logQ)+'"><button class="sb" data-act="logsearch" style="margin:8px 0 0;">検索</button>';
+ var pr=d.playoff_rows||[];
+ if(pr.length&&logOff===0){
+  h+='<div class="label" style="margin-top:12px;">トーナメント戦（レート変動なし）</div>';
+  for(var k=0;k<pr.length;k++){
+   var p=pr[k];
+   h+='<div class="rowline"><span class="nm">'+(p.third?'3位決定戦':(p.round+'回戦'))+' 卓'+(p.table_no||'-')+'<br>'+esc(p.p1)+' vs '+esc(p.p2)+'</span><span style="flex-shrink:0;">👑 '+esc(p.winner||'')+'</span></div>';
+  }
+ }
+ h+='<div class="label" style="margin-top:12px;">レート戦（タップで修正）</div>';
+ if(LOG.length===0){h+='<div class="mut" style="margin-top:6px;">結果がありません</div>';}
+ for(var i=0;i<LOG.length;i++){h+=logRow(LOG[i]);}
+ if(LOG.length<logTotal){h+='<button class="btn gray" data-act="logmore">さらに読み込む（残り'+(logTotal-LOG.length)+'件）</button>';}
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
 var lpTimer=null,lpFired=0;
 function lpStart(ev){
  if(!curTid||!A){return;}
@@ -656,6 +688,9 @@ document.addEventListener('click',async function(ev){
    }
   }
   else if(act==='arank'){await showRank();}
+  else if(act==='log'){logQ='';await showLog(true);}
+  else if(act==='logsearch'){logQ=val('logq');await showLog(true);}
+  else if(act==='logmore'){logOff=LOG.length;await showLog(false);}
   else if(act==='uinfo'){await showUser(el.getAttribute('data-uid'));}
   else if(act==='uadj'){
    var ad=parseInt(val('uav'),10);
