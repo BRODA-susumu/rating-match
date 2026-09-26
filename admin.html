@@ -268,9 +268,16 @@ function renderDash(){
   }
  }
  h+='</div>';
- h+='<div class="card"><div class="label">主催権限の管理</div><div class="inline">';
- h+='<button class="btn gray" data-act="grant1">権限を付与</button><button class="btn gray" data-act="grant0">権限を解除</button></div>';
- h+='<div class="mut" style="margin-top:8px;">対象のニックネームを入力して操作します。</div></div>';
+ if(A.tournament.is_owner){
+  h+='<div class="card"><div class="label">この大会のスタッフ</div>';
+  var st=A.staff||[];
+  if(st.length===0){h+='<div class="mut" style="margin-top:6px;">なし</div>';}
+  for(var si2=0;si2<st.length;si2++){
+   h+='<div class="rowline"><span>'+esc(st[si2].nickname)+'</span><button class="sb red" data-act="staffdel" data-uid="'+esc(st[si2].id)+'" data-nick="'+esc(st[si2].nickname)+'">外す</button></div>';
+  }
+  h+='<button class="btn gray" data-act="staffadd">スタッフを追加</button>';
+  h+='<div class="mut" style="font-size:11px;margin-top:6px;">スタッフはこの大会の進行・結果修正・レート調整ができます（称号の作成や授与は主催のみ）。他の大会には権限が及びません。</div></div>';
+ }
  h+='</div>';
  app().innerHTML=h;
 }
@@ -808,12 +815,19 @@ document.addEventListener('click',async function(ev){
     await showTitlesAdmin();
    }
   }
-  else if(act==='grant1'||act==='grant0'){
-   var g=(act==='grant1');
-   var nk3=prompt('対象のニックネームを入力');
-   if(nk3){
-    await rpc('admin_grant',{nick:nk3,g:g});
-    toastMsg(g?'主催権限を付与しました':'主催権限を解除しました');
+  else if(act==='staffadd'){
+   var sn=prompt('この大会のスタッフにするユーザーのニックネーム\n（この大会だけの権限です。他の大会には影響しません）');
+   if(sn&&sn.trim()){
+    var so=await rpc('admin_add_staff',{tid:curTid,nick:sn.trim()});
+    toastMsg(so.nickname+' をこの大会のスタッフにしました');
+    await aTick();
+   }
+  }
+  else if(act==='staffdel'){
+   if(confirm('「'+el.getAttribute('data-nick')+'」のスタッフ権限を外しますか？')){
+    await rpc('admin_remove_staff',{tid:curTid,target:el.getAttribute('data-uid')});
+    toastMsg('スタッフ権限を外しました');
+    await aTick();
    }
   }
   else if(act==='mclose'){hideModal();}
