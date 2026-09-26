@@ -444,7 +444,7 @@ function drawTA(){
   h+='<span style="flex-shrink:0;"><button class="sb" data-act="tedit" data-id="'+t.id+'">編集</button><button class="sb'+(t.active?' red':'')+'" data-act="ttog" data-id="'+t.id+'">'+(t.active?'停止':'再開')+'</button></span></div>';
  }
  h+='<div class="label" style="margin-top:14px;">コイン称号を追加</div>';
- h+='<input id="taname" placeholder="称号名（10文字まで）">';
+ h+='<input id="taname" placeholder="称号名（15文字まで）">';
  h+='<div style="display:flex;gap:8px;"><select id="tarare" style="flex:1;"><option value="N">N</option><option value="R">R</option><option value="SR">SR</option><option value="LR">LR</option></select><input id="taprice" type="number" placeholder="必要コイン" style="flex:1;"></div>';
  h+='<button class="btn" data-act="tadd">追加する</button>';
  h+='<div class="label" style="margin-top:14px;">称号を手動で付与</div>';
@@ -453,7 +453,7 @@ function drawTA(){
  for(var j=0;j<TAD.length;j++){h+='<option value="'+TAD[j].id+'">['+esc(TAD[j].rarity)+'] '+esc(TAD[j].name)+'</option>';}
  h+='</select><button class="btn" data-act="tgrant">付与する</button>';
  h+='<div class="label" style="margin-top:14px;">自作の称号を作って授与</div>';
- h+='<input id="tgnewname" placeholder="称号名（10文字まで）">';
+ h+='<input id="tgnewname" placeholder="称号名（15文字まで）">';
  h+='<select id="tgnewrare"><option value="N">N（銀×墨）</option><option value="R">R（金×紺）</option><option value="SR" selected>SR（金×朱）</option><option value="LR">LR（総金箔・発光）</option></select>';
  h+='<button class="btn warn" data-act="grantnew">作成して授与</button>';
  h+='<div class="mut" style="font-size:11px;margin-top:6px;">上の「ニックネーム」欄の人に授与されます。授与した称号は<b>他の主催の大会に参加しても表示できます</b>。他の主催の称号一覧には出ないので影響しません。<br>一度授与した称号の名称・レアリティの変更は大管理者のみ可能です。</div>';
