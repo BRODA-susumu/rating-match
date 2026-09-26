@@ -138,7 +138,7 @@ async function showList(){
  renderList();
 }
 function renderList(){
- var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div><button class="btn gray" data-act="pwreset">パスワード再発行</button></div>';
+ var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="pwreset">パスワード再発行</button></div><div class="mut" style="font-size:11px;margin-top:8px;">称号の管理は、大会を開いてから行えます。</div></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
  h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数"><div class="label" style="margin-top:10px;">マッチング基準</div><select id="cbasis"><option value="overall" selected>通算レート基準（常連が有利になりにくい実力マッチ）</option><option value="day">当日レート基準（その日の調子でマッチ）</option></select><label class="inline" style="margin-top:10px;gap:8px;align-items:center;font-size:14px;"><input type="checkbox" id="cseason" style="width:auto;margin:0;" data-act="seasontog">シーズンモード（長期開催・オンライン向け）</label><div id="seasonbox" style="display:none;background:#12162a;border-radius:12px;padding:10px;margin-top:8px;"><div class="mut" style="font-size:12px;">当日レートが「シーズンレート」になり、マッチングと上位選出もシーズンレートを参照します。一定期間対戦しないとレートが自動で下がります（最後に勝敗報告した時点から計算）。</div><div class="inline" style="margin-top:8px;"><div style="flex:1;"><div class="label">何日対戦しないと減衰</div><input id="cdays" type="number" value="3" style="margin-top:4px;"></div><div style="flex:1;"><div class="label">減衰率（%）</div><input id="cpct" type="number" value="20" style="margin-top:4px;"></div></div><div class="mut" style="font-size:11px;margin-top:6px;">2000を超えた分に対して減衰します（2000未満にはなりません）。期間が過ぎるごとに繰り返し適用されます。</div></div>';
  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label><div class="mut" style="font-size:11px;margin-top:8px;">連戦制限が有効です: 同じ相手とは別の2人と対戦するまで再マッチせず、同じ相手との3回目以降はレートが動きません（コインは入ります）。</div>';
@@ -191,7 +191,7 @@ function renderDash(){
  }
  h+='<button class="btn gray" data-act="arank">ランキング</button>';
  h+='<button class="btn gray" data-act="csv">CSV出力</button>';
- h+='<button class="btn gray" data-act="rateinfo">レート計算</button>';
+ h+='<div class="inline"><button class="btn gray" data-act="rateinfo">レート計算</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div>';
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
  h+='</div></div>';
  var po=A.playoff;var elig=A.eligible||0;
