@@ -260,7 +260,7 @@ function renderDash(){
  else{
   for(var i4=0;i4<A.participants.length;i4++){
    var pp=A.participants[i4];
-   h+='<div class="rowline"><span class="nm" style="min-width:0;">'+esc(pp.nickname)+' <b>'+pp.rating+'</b> <span class="mut" style="font-size:11px;">日'+pp.day+'・🪙'+pp.coins+'</span>'+(pp.kicked?' <span class="badge off">退出済</span>':'')+'</span><span style="flex-shrink:0;">';
+   h+='<div class="rowline"><span class="nm" style="min-width:0;">'+esc(pp.nickname)+' <b>'+pp.rating+'</b> <span class="mut" style="font-size:11px;">日'+pp.day+'・🪙'+pp.coins+'</span>'+(pp.discord?' <span class="mut" style="font-size:11px;">@'+esc(pp.discord)+'</span>':(A.tournament.is_season?' <span style="color:#ff7a8a;font-size:11px;">Discord未登録</span>':''))+(pp.kicked?' <span class="badge off">退出済</span>':'')+'</span><span style="flex-shrink:0;">';
    h+='<button class="sb" data-act="adj" data-nick="'+esc(pp.nickname)+'">レート修正</button>';
    if(!pp.kicked&&t.status==='active'){h+='<button class="sb red" data-act="kick" data-uid="'+pp.id+'" data-nick="'+esc(pp.nickname)+'">退出</button>';}
    h+='</span></div>';

@@ -68,7 +68,7 @@ var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var FN=SUPA_URL+'/functions/v1/app';
 var sb=window.supabase.createClient(SUPA_URL,ANON);
 var S=null,offset=0,viewLock=null,pollT=null,pollOn=false,tickIv=null,busy=false,authMode='login',pendingTp=null;
-var histRows=null,histFilter='all';
+var histRows=null,histFilter='all',pendingJoinPw=null;
 var TD=null,PO=null,poAt=0,poBusy=false,betM=null,betSel=null;
 var notif={ac:null,lastMatch:null,lastResult:null,lastPm:null,overdue:{}};
 var firstPoll=true;
@@ -231,11 +231,11 @@ function renderAuth(){
  h+='<div class="card"><div style="display:flex;gap:8px;">';
  h+='<button class="btn '+(authMode==='login'?'':'gray')+'" style="margin-top:0;" data-act="tab-login">ログイン</button>';
  h+='<button class="btn '+(authMode==='register'?'':'gray')+'" style="margin-top:0;" data-act="tab-register">新規登録</button></div>';
- if(authMode==='register'){h+='<input id="nick" placeholder="ニックネーム（20文字まで）">';}
+ if(authMode==='register'){h+='<input id="nick" placeholder="ニックネーム（20文字まで）"><input id="dsc" placeholder="Discordアカウント名（任意）">';}
  h+='<input id="email" type="email" placeholder="メールアドレス">';
  h+='<input id="pass" type="password" placeholder="パスワード（6文字以上）">';
  h+='<input id="tpw0" placeholder="大会パスワード（任意・あとからでも入力できます）">';
- if(authMode==='register'){h+='<button class="btn" data-act="register">登録してはじめる</button><div class="mut" style="margin-top:8px;">ニックネームは登録後、1回だけ変更できます。同じニックネームは使えません。</div>';}
+ if(authMode==='register'){h+='<button class="btn" data-act="register">登録してはじめる</button><div class="mut" style="margin-top:8px;">ニックネームは登録後、1回だけ変更できます。同じニックネームは使えません。<br>Discordアカウント名は任意ですが、オンライン大会（シーズン）に参加するには必要です。あとから登録もできます。</div>';}
  else{h+='<button class="btn" data-act="login">ログイン</button><div class="center" style="margin-top:12px;"><span class="mut" style="text-decoration:underline;cursor:pointer;" data-act="forgot">パスワードを忘れた方</span></div>';}
  h+='</div></div>';
  app().innerHTML=h;
@@ -255,6 +255,7 @@ function renderHome(){
  var ts=S.tournaments||[];
  var h='<div class="wrap">';
  h+='<div class="card"><div class="label">ニックネーム</div><div style="font-size:20px;font-weight:700;">'+esc(p.nickname)+(p.is_admin?' <span class="badge">主催</span>':'')+'</div>';
+ h+='<div class="rowline" style="border-bottom:0;padding:6px 0;"><span class="mut" style="font-size:12px;">Discord: '+(p.discord?esc(p.discord):'<span style="color:#ffb3bd;">未登録</span>')+'</span><button class="sb" data-act="dsc">'+(p.discord?'変更':'登録')+'</button></div>';
  h+=ttlRow(p.titles,false);
  h+='<div style="display:flex;gap:20px;margin-top:12px;align-items:flex-end;flex-wrap:wrap;">';
  if(t){h+='<div><div class="label">通算レート</div><div class="rate">'+p.rating+'</div></div>';}
@@ -664,10 +665,41 @@ document.addEventListener('click',async function(ev){
    else{
     var r2=await sb.auth.signInWithPassword({email:em,password:pw});
     if(r2.error){toastMsg('登録は完了しました。ログインしてください');authMode='login';renderAuth();}
-    else{if(tp1){pendingTp=tp1;}startApp();}
+    else{
+     var dv=val('dsc');
+     if(dv){try{await rpc('set_discord',{dname:dv});}catch(e3){toastMsg('Discord名は登録できませんでした: '+errMsg(e3));}}
+     if(tp1){pendingTp=tp1;}startApp();
+    }
    }
   }
-  else if(act==='join'){var jr=await rpc('join_tournament',{pw:val('tpw')});toastMsg('「'+jr.name+'」に参加しました');await poll();}
+  else if(act==='join'){
+   var pwv=val('tpw');
+   try{
+    var jr=await rpc('join_tournament',{pw:pwv});
+    toastMsg('「'+jr.name+'」に参加しました');await poll();
+   }catch(ej){
+    if(String(errMsg(ej)).indexOf('DISCORD_REQUIRED')>=0){
+     pendingJoinPw=pwv;
+     showModal('<div style="font-weight:800;font-size:16px;">Discordアカウント名の登録</div><div class="mut" style="margin-top:8px;line-height:1.6;">この大会はオンライン対戦（シーズン）のため、Discordアカウント名の登録が必要です。<br>対戦相手との連絡に使われます。</div><input id="dscv" placeholder="Discordアカウント名（例: susumu_1234）"><div class="mut" style="font-size:11px;margin-top:6px;">表示名ではなく、半角のユーザー名を入力してください。</div><button class="btn" data-act="dscgo" data-join="1">登録して参加する</button><button class="btn gray" data-act="mclose">やめる</button>');
+    }else{throw ej;}
+   }
+  }
+  else if(act==='dsc'){
+   showModal('<div style="font-weight:800;font-size:16px;">Discordアカウント名</div><div class="mut" style="margin-top:8px;line-height:1.6;">オンライン大会（シーズン）に参加するには登録が必要です。会場の大会だけなら任意です。</div><input id="dscv" placeholder="Discordアカウント名（例: susumu_1234）" value="'+esc(S.profile.discord||'')+'"><div class="mut" style="font-size:11px;margin-top:6px;">表示名ではなく、半角のユーザー名を入力してください。他の人が登録済みの名前は使えません。</div><button class="btn" data-act="dscgo">保存する</button><button class="btn gray" data-act="mclose">やめる</button>');
+  }
+  else if(act==='dscgo'){
+   var dv2=val('dscv');
+   if(!dv2){toastMsg('Discordアカウント名を入力してください');}
+   else{
+    await rpc('set_discord',{dname:dv2});
+    if(el.getAttribute('data-join')&&pendingJoinPw){
+     var jr2=await rpc('join_tournament',{pw:pendingJoinPw});
+     pendingJoinPw=null;
+     toastMsg('「'+jr2.name+'」に参加しました');
+    }else{toastMsg('Discordアカウント名を登録しました');}
+    hideModal();await poll();
+   }
+  }
   else if(act==='switcht'){var sr=await rpc('select_tournament',{tid:el.getAttribute('data-tid')});toastMsg('「'+sr.name+'」に切り替えました');await poll();}
   else if(act==='queue'){await rpc('enqueue');await poll();}
   else if(act==='cancel'){await rpc('cancel_queue');await poll();}
