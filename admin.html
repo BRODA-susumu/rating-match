@@ -141,7 +141,7 @@ function renderList(){
  var h='<div class="wrap"><div class="card"><div style="display:flex;justify-content:space-between;align-items:center;"><div style="font-weight:800;font-size:18px;">主催管理</div><button class="sb" data-act="logout">ログアウト</button></div><div class="mut">'+esc(ME.nickname)+'</div><div class="inline"><button class="btn gray" data-act="rateinfo">レート計算の仕組み</button><button class="btn gray" data-act="titlesadm">称号の管理</button></div><button class="btn gray" data-act="pwreset">パスワード再発行</button></div>';
  h+='<div class="card"><div class="label">新しい大会を作成</div>';
  h+='<input id="cname" placeholder="大会名"><input id="cpw" placeholder="大会パスワード（4文字以上）"><input id="ctables" type="number" placeholder="テーブル数"><div class="label" style="margin-top:10px;">マッチング基準</div><select id="cbasis"><option value="overall" selected>通算レート基準（常連が有利になりにくい実力マッチ）</option><option value="day">当日レート基準（その日の調子でマッチ）</option></select><label class="inline" style="margin-top:10px;gap:8px;align-items:center;font-size:14px;"><input type="checkbox" id="cseason" style="width:auto;margin:0;" data-act="seasontog">シーズンモード（長期開催・オンライン向け）</label><div id="seasonbox" style="display:none;background:#12162a;border-radius:12px;padding:10px;margin-top:8px;"><div class="mut" style="font-size:12px;">当日レートが「シーズンレート」になり、マッチングと上位選出もシーズンレートを参照します。一定期間対戦しないとレートが自動で下がります（最後に勝敗報告した時点から計算）。</div><div class="inline" style="margin-top:8px;"><div style="flex:1;"><div class="label">何日対戦しないと減衰</div><input id="cdays" type="number" value="3" style="margin-top:4px;"></div><div style="flex:1;"><div class="label">減衰率（%）</div><input id="cpct" type="number" value="20" style="margin-top:4px;"></div></div><div class="mut" style="font-size:11px;margin-top:6px;">2000を超えた分に対して減衰します（2000未満にはなりません）。期間が過ぎるごとに繰り返し適用されます。</div></div>';
- h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label>';
+ h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="crated" checked style="width:auto;margin:0;">レーティング変動あり（オフにすると交流会モード）</label><div class="mut" style="font-size:11px;margin-top:8px;">連戦制限が有効です: 同じ相手とは別の2人と対戦するまで再マッチせず、同じ相手との3回目以降はレートが動きません（コインは入ります）。</div>';
  h+='<button class="btn" data-act="create">大会を作成</button></div>';
  h+='<div class="label" style="margin:6px 4px;">大会一覧（タップで管理）</div>';
  if(!listCache||listCache.length===0){h+='<div class="card mut center">まだ大会がありません</div>';}
@@ -261,7 +261,7 @@ function renderDash(){
   for(var i4=0;i4<A.participants.length;i4++){
    var pp=A.participants[i4];
    h+='<div class="rowline"><span class="nm" style="min-width:0;">'+esc(pp.nickname)+' <b>'+pp.rating+'</b> <span class="mut" style="font-size:11px;">日'+pp.day+'・🪙'+pp.coins+'</span>'+(pp.discord?' <span class="mut" style="font-size:11px;">@'+esc(pp.discord)+'</span>':(A.tournament.is_season?' <span style="color:#ff7a8a;font-size:11px;">Discord未登録</span>':''))+(pp.kicked?' <span class="badge off">退出済</span>':'')+'</span><span style="flex-shrink:0;">';
-   h+='<button class="sb" data-act="adj" data-nick="'+esc(pp.nickname)+'">レート修正</button>';
+   h+='<button class="sb" data-act="uinfo" data-uid="'+esc(pp.id)+'">詳細</button>';
    if(!pp.kicked&&t.status==='active'){h+='<button class="sb red" data-act="kick" data-uid="'+pp.id+'" data-nick="'+esc(pp.nickname)+'">退出</button>';}
    h+='</span></div>';
   }
@@ -487,6 +487,42 @@ async function showRank(){
  h+='<button class="btn gray" data-act="mclose">閉じる</button>';
  showModal(h);
 }
+async function showUser(uid){
+ var u=await rpc('admin_user_info',{tid:curTid,target:uid});
+ var h='<div style="font-weight:800;font-size:17px;">'+esc(u.nickname)+(u.kicked?' <span class="badge off">退出済</span>':'')+'</div>';
+ h+='<div class="label" style="margin-top:10px;">登録情報</div>';
+ h+='<div class="rowline"><span class="mut">メールアドレス</span><span class="nm">'+esc(u.email||'—')+'</span></div>';
+ h+='<div class="rowline"><span class="mut">Discord</span><span>'+(u.discord?'@'+esc(u.discord):'<span class="mut">未登録</span>')+' <button class="sb" data-act="udsc" data-uid="'+esc(u.id)+'" data-nick="'+esc(u.nickname)+'" data-dsc="'+esc(u.discord||'')+'">変更</button></span></div>';
+ h+='<div class="rowline"><span class="mut">アカウント作成</span><span>'+new Date(u.created_at).toLocaleDateString('ja-JP')+'</span></div>';
+ h+='<div class="rowline"><span class="mut">この大会に参加</span><span>'+new Date(u.joined_at).toLocaleDateString('ja-JP')+'</span></div>';
+ if(u.other_realms>0){h+='<div class="rowline"><span class="mut">他の主催の大会</span><span>'+u.other_realms+'件に参加歴あり</span></div>';}
+ h+='<div class="label" style="margin-top:12px;">この大会での成績</div>';
+ h+='<div class="rowline"><span class="mut">戦績</span><b>'+u.wins+'勝'+u.losses+'敗'+(u.draws>0?u.draws+'分':'')+'</b></div>';
+ h+='<div class="rowline"><span class="mut">レート</span><b>'+(A.tournament.is_season?'シーズン':'当日')+' '+u.day+' ／ 通算 '+u.rating+'</b></div>';
+ h+='<div class="rowline"><span class="mut">コイン・称号</span><b><span class="coin">🪙'+u.coins+'</span> ・ 称号'+u.titles+'個</b></div>';
+ var op=u.opponents||[];
+ if(op.length){
+  var ol='';
+  for(var i=0;i<op.length;i++){ol+=(ol?' / ':'')+esc(op[i].nickname)+(op[i].count>1?'×'+op[i].count:'');}
+  h+='<div class="label" style="margin-top:10px;">対戦した相手</div><div class="mut" style="font-size:12px;margin-top:4px;">'+ol+'</div>';
+  var rep=false;
+  for(var j=0;j<op.length;j++){if(op[j].count>=3){rep=true;}}
+  if(rep){h+='<div style="background:#3a2020;border:1px solid #6b3b3b;border-radius:10px;padding:8px;margin-top:6px;font-size:12px;color:#ffb3bd;">同じ相手と3回以上対戦しています。不正の可能性を確認してください。</div>';}
+ }
+ h+='<div class="label" style="margin-top:14px;">レート調整</div>';
+ h+='<input id="uav" type="number" placeholder="増減値（例: -20 / 15）"><input id="uar" placeholder="理由（任意）">';
+ h+='<div class="inline"><button class="btn" data-act="uadj" data-uid="'+esc(u.id)+'" data-scope="overall">通算</button><button class="btn warn" data-act="uadj" data-uid="'+esc(u.id)+'" data-scope="day">'+(A.tournament.is_season?'シーズン':'当日')+'</button></div>';
+ h+='<div class="label" style="margin-top:14px;">コイン調整</div>';
+ h+='<input id="ucv" type="number" placeholder="増減値（例: 500 / -200）"><input id="ucr" placeholder="理由（任意）">';
+ h+='<button class="btn" data-act="ucoin" data-uid="'+esc(u.id)+'">コインを反映</button>';
+ if(!u.kicked){h+='<button class="btn gray" data-act="ukick" data-uid="'+esc(u.id)+'" data-nick="'+esc(u.nickname)+'">この大会から退出させる</button>';}
+ if(A.tournament.is_super&&!u.is_super){
+  h+='<button class="btn red" data-act="udel" data-uid="'+esc(u.id)+'" data-nick="'+esc(u.nickname)+'">アカウントを削除</button>';
+  h+='<div class="mut" style="font-size:11px;margin-top:6px;">削除するとすべての大会のデータが消えます（大管理者のみ）。</div>';
+ }
+ h+='<button class="btn gray" data-act="mclose">閉じる</button>';
+ showModal(h);
+}
 var lpTimer=null,lpFired=0;
 function lpStart(ev){
  if(!curTid||!A){return;}
@@ -614,6 +650,50 @@ document.addEventListener('click',async function(ev){
    }
   }
   else if(act==='arank'){await showRank();}
+  else if(act==='uinfo'){await showUser(el.getAttribute('data-uid'));}
+  else if(act==='uadj'){
+   var ad=parseInt(val('uav'),10);
+   if(isNaN(ad)||ad===0){toastMsg('増減値を入力してください');}
+   else{
+    var uo=await rpc('admin_adjust_rating_u',{tid:curTid,target:el.getAttribute('data-uid'),delta:ad,reason:val('uar'),scope:el.getAttribute('data-scope')});
+    toastMsg(uo.nickname+' の'+(uo.scope==='day'?'当日/シーズン':'通算')+'レートを '+uo.rating+' にしました');
+    await showUser(el.getAttribute('data-uid'));
+   }
+  }
+  else if(act==='ucoin'){
+   var cd2=parseInt(val('ucv'),10);
+   if(isNaN(cd2)||cd2===0){toastMsg('増減値を入力してください');}
+   else{
+    var co2=await rpc('admin_set_coins',{tid:curTid,target:el.getAttribute('data-uid'),delta:cd2,reason:val('ucr')});
+    toastMsg(co2.nickname+' のコインを '+co2.coins+' にしました');
+    await showUser(el.getAttribute('data-uid'));
+   }
+  }
+  else if(act==='udsc'){
+   var nd=prompt('Discordアカウント名（空欄にするとクリア）', el.getAttribute('data-dsc')||'');
+   if(nd!==null){
+    await rpc('admin_set_discord',{tid:curTid,nick:el.getAttribute('data-nick'),dname:nd});
+    toastMsg('Discordアカウント名を更新しました');
+    await showUser(el.getAttribute('data-uid'));
+   }
+  }
+  else if(act==='udel'){
+   var dn=el.getAttribute('data-nick');
+   if(confirm('「'+dn+'」のアカウントを完全に削除します。\n\nすべての大会のレート・称号・コイン・対戦記録が消え、取り消せません。\n本当に削除しますか？')){
+    if(confirm('最終確認です。「'+dn+'」を削除します。よろしいですか？')){
+     await rpc('super_delete_user',{target:el.getAttribute('data-uid')});
+     toastMsg(dn+' のアカウントを削除しました');
+     hideModal();await aTick();
+    }
+   }
+  }
+  else if(act==='ukick'){
+   if(confirm('「'+el.getAttribute('data-nick')+'」をこの大会から退出させますか？\nレートや称号は残ります。')){
+    await rpc('admin_kick',{tid:curTid,target:el.getAttribute('data-uid')});
+    toastMsg('退出させました');
+    hideModal();await aTick();
+   }
+  }
   else if(act==='apo'){curView='po';await aTick();}
   else if(act==='apoback'){curView='dash';await aTick();}
   else if(act==='apom'){var am=apoFind(el.getAttribute('data-mid'));if(am){showApoForce(am);}}

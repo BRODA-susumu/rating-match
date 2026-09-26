@@ -118,7 +118,7 @@ function render(){
     for(var m2=0;m2<(u.realms||[]).length;m2++){rl+=(rl?' / ':'')+esc(u.realms[m2].owner)+': '+u.realms[m2].rating;}
     h+='<div class="rowline"><span class="nm"><b>'+esc(u.nickname)+'</b>'+(u.is_super?' <span class="badge y">大管理者</span>':(u.is_owner?' <span class="badge">小管理者</span>':''))+
       '<br><span class="mut" style="font-size:11px;"><span class="coin">🪙'+u.coins+'</span>'+(rl?' ・ '+rl:'')+'</span></span>';
-    h+='<span style="flex-shrink:0;"><button class="sb" data-act="coins" data-nick="'+esc(u.nickname)+'">コイン</button><button class="sb" data-act="pwr" data-nick="'+esc(u.nickname)+'">PW再発行</button></span></div>';
+    h+='<span style="flex-shrink:0;"><button class="sb" data-act="uinfo" data-uid="'+esc(u.id)+'">詳細</button><button class="sb" data-act="coins" data-nick="'+esc(u.nickname)+'">コイン</button><button class="sb" data-act="pwr" data-nick="'+esc(u.nickname)+'">PW再発行</button></span></div>';
    }
    if(users.length===0){h+='<div class="mut" style="margin-top:8px;">該当なし</div>';}
   }
@@ -184,6 +184,42 @@ document.addEventListener('click',async function(ev){
    if(confirm('「'+pn+'」の仮パスワードを発行しますか？今のパスワードは使えなくなります。')){
     var pr=await rpc('admin_reset_password',{nick:pn});
     showModal('<div style="font-weight:800;font-size:16px;">仮パスワードを発行しました</div><div class="mut" style="margin-top:8px;">'+esc(pr.nickname)+' さんに伝えてください</div><div style="font-size:32px;font-weight:900;letter-spacing:4px;text-align:center;margin:16px 0;font-family:monospace;color:#ffd75e;">'+esc(pr.password)+'</div><div class="mut">ログイン後、本人がホーム画面から変更できます。</div><button class="btn gray" data-act="mclose">閉じる</button>');
+   }
+  }
+  else if(act==='uinfo'){
+   var u=await rpc('super_user_info',{target:el.getAttribute('data-uid')});
+   var uh='<div style="font-weight:800;font-size:17px;">'+esc(u.nickname)+(u.is_super?' <span class="badge y">大管理者</span>':(u.is_owner?' <span class="badge">小管理者</span>':''))+'</div>';
+   uh+='<div class="rowline"><span class="mut">メールアドレス</span><span class="nm">'+esc(u.email||'—')+'</span></div>';
+   uh+='<div class="rowline"><span class="mut">Discord</span><span>'+(u.discord?'@'+esc(u.discord):'<span class="mut">未登録</span>')+'</span></div>';
+   uh+='<div class="rowline"><span class="mut">登録日</span><span>'+new Date(u.created_at).toLocaleDateString('ja-JP')+'</span></div>';
+   uh+='<div class="rowline"><span class="mut">コイン</span><b class="coin">🪙'+u.coins+'</b></div>';
+   uh+='<div class="rowline"><span class="mut">総対戦数</span><b>'+u.matches+'</b></div>';
+   var rs=u.realms||[];
+   if(rs.length){
+    uh+='<div class="label" style="margin-top:10px;">主催ごとのレート</div>';
+    for(var ri=0;ri<rs.length;ri++){
+     uh+='<div class="rowline"><span class="nm">'+esc(rs[ri].owner)+'</span><span><b>'+rs[ri].rating+'</b> <span class="mut" style="font-size:11px;">称号'+rs[ri].titles+'個'+(rs[ri].champs>0?' ・優勝'+rs[ri].champs+'回':'')+'</span></span></div>';
+    }
+   }
+   var tl=u.tournaments||[];
+   if(tl.length){
+    var tn='';
+    for(var ti=0;ti<tl.length;ti++){tn+=(tn?' / ':'')+esc(tl[ti].name);}
+    uh+='<div class="label" style="margin-top:10px;">参加した大会</div><div class="mut" style="font-size:12px;margin-top:4px;">'+tn+'</div>';
+   }
+   if(!u.is_super){
+    uh+='<button class="btn red" data-act="udel" data-uid="'+esc(u.id)+'" data-nick="'+esc(u.nickname)+'">アカウントを削除</button>';
+    uh+='<div class="mut" style="font-size:11px;margin-top:6px;">すべての大会のレート・称号・コイン・対戦記録が消えます。取り消せません。</div>';
+   }
+   uh+='<button class="btn gray" data-act="mclose">閉じる</button>';
+   showModal(uh);
+  }
+  else if(act==='udel'){
+   var dn=el.getAttribute('data-nick');
+   if(confirm('「'+dn+'」のアカウントを完全に削除します。\n\nすべての大会のレート・称号・コイン・対戦記録が消え、取り消せません。\n本当に削除しますか？')&&confirm('最終確認です。「'+dn+'」を削除します。')){
+    await rpc('super_delete_user',{target:el.getAttribute('data-uid')});
+    toastMsg(dn+' を削除しました');
+    hideModal();users=await rpc('super_user_search',{q:uq});await load();
    }
   }
   else if(act==='mclose'){hideModal();}
