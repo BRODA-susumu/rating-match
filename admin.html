@@ -149,7 +149,7 @@ function renderList(){
   for(var i=0;i<listCache.length;i++){
    var t=listCache[i];
    h+='<div class="card" data-act="open" data-tid="'+t.id+'" style="cursor:pointer;">';
-   h+='<div style="display:flex;justify-content:space-between;align-items:center;"><b style="font-size:16px;">'+esc(t.name)+'</b><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span></div>';
+   h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b style="font-size:16px;min-width:0;" class="nm">'+esc(t.name)+'</b><span style="flex-shrink:0;"><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span>'+(t.status!=='active'?'<button class="sb" data-act="final" data-tid="'+t.id+'">最終成績</button>':'')+'</span></div>';
    h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+(t.is_season?' ・ <span style="color:#7de8b6;">シーズン</span>':'')+(t.mine?'':' ・ <span style="color:#ffe9b0;">スタッフ</span>')+(t.owner&&!t.mine?' ・ 主催: '+esc(t.owner):'')+' ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
    h+='</div>';
   }
