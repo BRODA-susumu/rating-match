@@ -238,7 +238,25 @@ function renderDash(){
   if(tb.disabled){cls+=' x';}
   h+='<div class="tc '+cls+'" data-no="'+tb.no+'"'+actAttr+'>'+inner+'</div>';
  }
- h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中 / 紫=トーナメント / 薄赤枠=使用停止</div></div>';
+ h+='</div><div class="mut" style="margin-top:8px;">黄=開始待ち / 赤=時間切れ / 緑=対戦中 / 紫=トーナメント / 薄赤枠=使用停止</div>';
+ var live='';
+ for(var li=0;li<A.tables.length;li++){
+  var lt=A.tables[li];
+  if(lt.pmatch){
+   live+='<div class="rowline" data-act="potm" data-no="'+lt.no+'" style="cursor:pointer;"><span class="nm" style="min-width:0;"><b>卓'+lt.no+'</b> '+esc(lt.pmatch.p1)+' <span class="mut">vs</span> '+esc(lt.pmatch.p2)+'</span><span class="badge" style="flex-shrink:0;background:#2c1f4d;color:#dbc9ff;">'+(lt.pmatch.status==='pending_start'?'トナメ開始待ち':'トナメ対戦中')+'</span></div>';
+  }else if(lt.match){
+   var lm=lt.match;
+   var over2=(lm.status==='pending_start'&&Date.parse(lm.start_deadline)<(Date.now()+offA));
+   var st2=over2?'<span class="badge off">時間切れ</span>':(lm.status==='in_progress'?'<span class="badge on">対戦中</span>':'<span class="badge" style="background:#4d3d10;color:#ffe9b0;">開始待ち</span>');
+   var rp='';
+   if(lm.status==='in_progress'&&(lm.p1_report||lm.p2_report)){
+    rp=' <span class="mut" style="font-size:11px;">('+(lm.p1_report?esc(lm.p1)+'報告済':'')+(lm.p1_report&&lm.p2_report?' / ':'')+(lm.p2_report?esc(lm.p2)+'報告済':'')+')</span>';
+   }
+   live+='<div class="rowline" data-act="tmod" data-no="'+lt.no+'" style="cursor:pointer;"><span class="nm" style="min-width:0;"><b>卓'+lt.no+'</b> '+esc(lm.p1)+' <span class="mut">vs</span> '+esc(lm.p2)+rp+'</span><span style="flex-shrink:0;">'+st2+'</span></div>';
+  }
+ }
+ h+='<div style="margin-top:10px;"><div class="label">対戦中の組み合わせ（タップで操作）</div>'+(live||'<div class="mut" style="margin-top:6px;">対戦中の卓はありません</div>')+'</div>';
+ h+='</div>';
  if(A.queue&&A.queue.length>0){
   h+='<div class="card"><div class="label">待機中</div>';
   for(var i2=0;i2<A.queue.length;i2++){
