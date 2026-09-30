@@ -56,13 +56,17 @@ input,select{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;bo
 .chip.y{background:#4d3d10;color:#ffe9b0;}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;z-index:40;overflow:auto;padding:16px;}
 #mbox{max-width:420px;margin:36px auto;background:#1a1f33;border-radius:16px;padding:18px;}
+#alertbox{position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:60;display:none;max-width:560px;margin:0 auto;}
+.alertcard{background:#5a1f2c;border:2px solid #ff5a73;border-radius:14px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:ab 1s ease-in-out infinite alternate;}
+@keyframes ab{from{box-shadow:0 0 0 rgba(255,90,115,.0);}to{box-shadow:0 0 18px rgba(255,90,115,.7);}}
+.alertrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.12);font-size:13px;color:#ffe3e8;}
 #toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:#e0405a;color:#fff;padding:12px 16px;border-radius:12px;font-size:14px;display:none;z-index:60;text-align:center;}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="modal"><div id="mbox"></div></div>
-<div id="toast"></div>
+<div id="alertbox"></div><div id="toast"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -134,6 +138,7 @@ function renderClaim(){
 }
 async function showList(){
  clearInterval(aIv);curTid=null;A=null;
+ var abx=document.getElementById('alertbox');if(abx){abx.style.display='none';abx.innerHTML='';}
  listCache=await rpc('admin_list_tournaments');
  renderList();
 }
@@ -149,7 +154,7 @@ function renderList(){
   for(var i=0;i<listCache.length;i++){
    var t=listCache[i];
    h+='<div class="card" data-act="open" data-tid="'+t.id+'" style="cursor:pointer;">';
-   h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b style="font-size:16px;min-width:0;" class="nm">'+esc(t.name)+'</b><span style="flex-shrink:0;"><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span>'+(t.status!=='active'?'<button class="sb" data-act="final" data-tid="'+t.id+'">最終成績</button>':'')+'</span></div>';
+   h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b style="font-size:16px;min-width:0;" class="nm">'+esc(t.name)+'</b><span style="flex-shrink:0;"><span class="badge '+(t.status==='active'?'on':'off')+'">'+(t.status==='active'?'開催中':'終了')+'</span>'+(t.status!=='active'?'<button class="sb" data-act="final" data-tid="'+t.id+'">最終成績</button>':'')+(t.status!=='active'&&t.mine?'<button class="sb red" data-act="tdel2" data-tid="'+t.id+'" data-name="'+esc(t.name)+'">削除</button>':'')+'</span></div>';
    h+='<div class="mut" style="margin-top:6px;">参加 '+t.participants+'人 ・ '+t.table_count+'卓'+(t.rated===false?'（交流会）':'')+(t.is_season?' ・ <span style="color:#7de8b6;">シーズン</span>':'')+(t.mine?'':' ・ <span style="color:#ffe9b0;">スタッフ</span>')+(t.owner&&!t.mine?' ・ 主催: '+esc(t.owner):'')+' ・ PW: '+esc(t.password)+(t.matching_paused?' ・ 募集停止中':'')+'</div>';
    h+='</div>';
   }
@@ -174,6 +179,7 @@ async function aTick(){
   }
   A=await rpc('admin_state',{tid:curTid});
   offA=Date.parse(A.now)-Date.now();
+  handleAlerts(A.alerts||[]);
   if(!modalOpen()&&!isEditing()){renderDash();}
  }catch(e){}
 }
@@ -193,6 +199,7 @@ function renderDash(){
  h+='<button class="btn gray" data-act="csv">CSV出力</button>';
  h+='<button class="btn gray" data-act="titlesadm">称号の管理・授与</button>';
  h+='<button class="btn gray" data-act="rateinfo">レート計算</button>';
+ if(A.tournament.is_owner){h+='<button class="btn gray" data-act="tedit2">大会設定</button>';}
  if(t.status==='active'){h+='<button class="btn red" data-act="end">大会終了</button>';}
  h+='</div></div>';
  var po=A.playoff;var elig=A.eligible||0;
@@ -586,6 +593,39 @@ async function showLog(reset){
  h+='<button class="btn gray" data-act="mclose">閉じる</button>';
  showModal(h);
 }
+var seenAlerts={},alertAC=null,alertMuteUntil=0;
+function alertBeep(){
+ try{
+  if(!alertAC){var C=window.AudioContext||window.webkitAudioContext;if(C){alertAC=new C();}}
+  if(!alertAC){return;}
+  if(alertAC.state==='suspended'){alertAC.resume();}
+  var t=alertAC.currentTime+0.02;
+  var seq=[[880,0.14],[660,0.14],[880,0.14],[660,0.3]];
+  for(var i=0;i<seq.length;i++){
+   var o=alertAC.createOscillator(),g=alertAC.createGain();
+   o.type='square';o.frequency.value=seq[i][0];
+   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.25,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+seq[i][1]);
+   o.connect(g);g.connect(alertAC.destination);o.start(t);o.stop(t+seq[i][1]+0.02);t+=seq[i][1]+0.05;
+  }
+ }catch(e){}
+ try{if(navigator.vibrate){navigator.vibrate([300,120,300]);}}catch(e2){}
+}
+function handleAlerts(list){
+ var box=document.getElementById('alertbox');
+ if(!box){return;}
+ if(!list.length){box.style.display='none';box.innerHTML='';return;}
+ var fresh=false;
+ for(var i=0;i<list.length;i++){if(!seenAlerts[list[i].key]){seenAlerts[list[i].key]=1;fresh=true;}}
+ if(fresh&&Date.now()>alertMuteUntil){alertBeep();}
+ var h='<div class="alertcard"><div style="display:flex;justify-content:space-between;align-items:center;"><b style="color:#fff;">⚠ 対応が必要な卓 '+list.length+'件</b><button class="sb" data-act="alertmute">5分間 音を止める</button></div>';
+ for(var j=0;j<list.length;j++){
+  var a=list[j];
+  h+='<div class="alertrow"><span>'+esc(a.text)+'</span><button class="sb" data-act="'+(a.playoff?'potm':'tmod')+'" data-no="'+(a.table_no||'')+'">対応</button></div>';
+ }
+ h+='</div>';
+ box.innerHTML=h;box.style.display='block';
+}
+document.addEventListener('click',function(){try{if(!alertAC){var C=window.AudioContext||window.webkitAudioContext;if(C){alertAC=new C();}}if(alertAC&&alertAC.state==='suspended'){alertAC.resume();}}catch(e){}},{capture:true});
 var lpTimer=null,lpFired=0;
 function lpStart(ev){
  if(!curTid||!A){return;}
@@ -713,6 +753,49 @@ document.addEventListener('click',async function(ev){
    }
   }
   else if(act==='arank'){await showRank();}
+  else if(act==='alertmute'){alertMuteUntil=Date.now()+300000;toastMsg('5分間、通知音を止めます');}
+  else if(act==='tedit2'){
+   var tt=A.tournament;
+   var eh='<div style="font-weight:800;font-size:16px;">大会設定の変更</div>';
+   eh+='<div class="label" style="margin-top:10px;">大会名</div><input id="ename" value="'+esc(tt.name)+'">';
+   eh+='<div class="label" style="margin-top:8px;">大会パスワード</div><input id="epw" value="'+esc(tt.password)+'">';
+   eh+='<div class="label" style="margin-top:8px;">テーブル数</div><input id="etables" type="number" value="'+tt.table_count+'">';
+   if(!tt.is_season){
+    eh+='<div class="label" style="margin-top:8px;">マッチング基準</div><select id="ebasis"><option value="overall"'+(tt.match_basis==='overall'?' selected':'')+'>通算レート基準</option><option value="day"'+(tt.match_basis==='day'?' selected':'')+'>当日レート基準</option></select>';
+   }
+   eh+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;"><input type="checkbox" id="erated" '+(tt.rated!==false?'checked':'')+' style="width:auto;margin:0;">レーティング変動あり</label>';
+   if(tt.is_season){
+    eh+='<div class="inline" style="margin-top:8px;"><div style="flex:1;"><div class="label">何日対戦しないと減衰</div><input id="edays" type="number" value="'+tt.decay_days+'"></div><div style="flex:1;"><div class="label">減衰率（%）</div><input id="epct" type="number" value="'+tt.decay_pct+'"></div></div>';
+   }
+   eh+='<div class="mut" style="font-size:11px;margin-top:8px;">シーズンモードのオン・オフは作成後に変更できません。パスワードを変えると、これから参加する人は新しいパスワードが必要になります（参加済みの人はそのまま）。</div>';
+   eh+='<button class="btn" data-act="teditgo">保存する</button>';
+   eh+='<button class="btn red" data-act="tdel">この大会を削除</button>';
+   eh+='<button class="btn gray" data-act="mclose">閉じる</button>';
+   showModal(eh);
+  }
+  else if(act==='teditgo'){
+   var er=document.getElementById('erated');
+   await rpc('admin_update_tournament',{tid:curTid,pname:val('ename'),ppw:val('epw'),ptables:parseInt(val('etables'),10),
+     prated:er?er.checked:true,pbasis:(document.getElementById('ebasis')?val('ebasis'):'day'),
+     pdays:parseInt(val('edays'),10)||A.tournament.decay_days,ppct:(document.getElementById('epct')?parseInt(val('epct'),10):A.tournament.decay_pct)});
+   toastMsg('大会設定を保存しました');hideModal();await aTick();
+  }
+  else if(act==='tdel2'){
+   ev.stopPropagation();
+   if(confirm('大会「'+el.getAttribute('data-name')+'」を削除します。\n参加者・対戦記録・最終成績もすべて消え、取り消せません。')&&confirm('最終確認です。本当に削除しますか？')){
+    var dr2=await rpc('admin_delete_tournament',{tid:el.getAttribute('data-tid')});
+    toastMsg('「'+dr2.name+'」を削除しました');
+    await showList();
+   }
+  }
+  else if(act==='tdel'){
+   if(confirm('大会「'+A.tournament.name+'」を削除します。\n参加者・対戦記録もすべて消え、取り消せません。\n（対戦記録がある開催中の大会は、先に終了してください）')&&confirm('最終確認です。本当に削除しますか？')){
+    var dr=await rpc('admin_delete_tournament',{tid:curTid});
+    toastMsg('「'+dr.name+'」を削除しました');
+    hideModal();curTid=null;clearInterval(aIv);var ab=document.getElementById('alertbox');if(ab){ab.style.display='none';}
+    await showList();
+   }
+  }
   else if(act==='log'){logQ='';await showLog(true);}
   else if(act==='logsearch'){logQ=val('logq');await showLog(true);}
   else if(act==='logmore'){logOff=LOG.length;await showLog(false);}

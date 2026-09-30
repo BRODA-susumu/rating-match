@@ -68,7 +68,7 @@ var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 var FN=SUPA_URL+'/functions/v1/app';
 var sb=window.supabase.createClient(SUPA_URL,ANON);
 var S=null,offset=0,viewLock=null,pollT=null,pollOn=false,tickIv=null,busy=false,authMode='login',pendingTp=null;
-var histRows=null,histFilter='all',pendingJoinPw=null;
+var histRows=null,histFilter='all',pendingJoinPw=null,myResults=[];
 var TD=null,PO=null,poAt=0,poBusy=false,betM=null,betSel=null;
 var notif={ac:null,lastMatch:null,lastResult:null,lastPm:null,overdue:{}};
 var firstPoll=true;
@@ -322,8 +322,13 @@ function renderQueue(){
  h+='<div class="mut center" style="margin-top:10px;">マッチング成立後のキャンセルはできません。</div></div>';
  app().innerHTML=h;
 }
+function dscLine(o){
+ if(!o||!o.discord){return '';}
+ return '<div class="rowline" style="border-bottom:0;padding:6px 0 0;"><span style="font-size:13px;">Discord: <b>@'+esc(o.discord)+'</b></span><button class="sb" data-act="copydsc" data-v="'+esc(o.discord)+'">コピー</button></div>';
+}
 function oppBlock(o,myR,myD){
  var h='<div class="card"><div style="display:flex;align-items:center;gap:8px;"><span class="mut">対戦相手</span><b style="font-size:17px;">'+esc(o.nickname)+'</b></div>';
+ h+=dscLine(o);
  h+=ttlRow(o.titles,false);
  var dl=(S.tournament&&S.tournament.is_season)?'season':'当日';
  h+='<div class="rowline" style="margin-top:6px;"><span class="mut">相手のレート</span><b>通算 '+o.rating+(o.day!==null&&o.day!==undefined?' ／ '+dl+' '+o.day:'')+'</b></div>';
@@ -346,7 +351,7 @@ function renderMatch(m){
   app().innerHTML=h;
   return;
  }
- var h2='<div class="wrap"><div class="card"><div class="label">対戦中 — テーブル '+m.table_no+'</div><div style="font-size:17px;font-weight:700;margin-top:4px;">vs '+esc(m.opponent.nickname)+'（通算'+m.opponent.rating+(m.opponent.day!==null&&m.opponent.day!==undefined?'／当日'+m.opponent.day:'')+'）</div>'+ttlRow(m.opponent.titles,false)+'</div>';
+ var h2='<div class="wrap"><div class="card"><div class="label">対戦中 — テーブル '+m.table_no+'</div><div style="font-size:17px;font-weight:700;margin-top:4px;">vs '+esc(m.opponent.nickname)+'（通算'+m.opponent.rating+(m.opponent.day!==null&&m.opponent.day!==undefined?'／'+(S.tournament&&S.tournament.is_season?'シーズン':'当日')+m.opponent.day:'')+'）</div>'+dscLine(m.opponent)+ttlRow(m.opponent.titles,false)+'</div>';
  h2+='<div class="card"><div class="center" style="font-weight:700;">対戦が終わったら結果を報告してください</div>';
  h2+='<button class="btn green'+(m.my_report==='win'?' sel':'')+'" data-act="rep" data-res="win">勝利</button>';
  h2+='<button class="btn gray'+(m.my_report==='draw'?' sel':'')+'" data-act="rep" data-res="draw">引き分け</button>';
@@ -374,7 +379,7 @@ function renderPMatch(pm){
   app().innerHTML=h;
   return;
  }
- var h2='<div class="wrap"><div class="card"><div class="label">🏆 '+esc(rn)+' — テーブル '+pm.table_no+'</div><div style="font-size:17px;font-weight:700;margin-top:4px;">vs '+esc(pm.opponent.nickname)+'</div>'+ttlRow(pm.opponent.titles,false)+'</div>';
+ var h2='<div class="wrap"><div class="card"><div class="label">🏆 '+esc(rn)+' — テーブル '+pm.table_no+'</div><div style="font-size:17px;font-weight:700;margin-top:4px;">vs '+esc(pm.opponent.nickname)+'</div>'+dscLine(pm.opponent)+ttlRow(pm.opponent.titles,false)+'</div>';
  h2+='<div class="card"><div class="center" style="font-weight:700;">対戦が終わったら結果を報告してください</div>';
  h2+='<button class="btn green'+(pm.my_report==='win'?' sel':'')+'" data-act="prep" data-res="win">勝利</button>';
  h2+='<button class="btn red'+(pm.my_report==='lose'?' sel':'')+'" data-act="prep" data-res="lose">敗北</button>';
@@ -430,6 +435,7 @@ async function renderHistory(){
  app().innerHTML='<div class="wrap"><div class="card center mut">読み込み中…</div></div>';
  try{
   histRows=await rpc('get_history');
+  try{myResults=await rpc('get_my_results');}catch(e9){myResults=[];}
   histFilter='r30';
   drawHistory();
  }catch(e){toastMsg(errMsg(e));viewLock=null;render();}
@@ -438,7 +444,17 @@ function drawHistory(){
  var rows=histRows||[];
  var names=[];
  for(var i=0;i<rows.length;i++){if(names.indexOf(rows[i].tournament)<0){names.push(rows[i].tournament);}}
- var h='<div class="wrap"><div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">対戦履歴</div>';
+ var h='<div class="wrap">';
+ if(myResults&&myResults.length){
+  h+='<div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">過去の大会成績</div>';
+  for(var mr=0;mr<myResults.length;mr++){
+   var x=myResults[mr];
+   h+='<div class="rowline"><span class="nm2" style="min-width:0;"><b>'+esc(x.tournament)+'</b>'+(x.season?' <span class="badge">シーズン</span>':'')+'<br><span class="mut" style="font-size:11px;">'+(x.ended_at?fmtDate(x.ended_at):'')+' ・ '+x.w+'勝'+x.l+'敗'+(x.d>0?x.d+'分':'')+' ・ '+(x.season?'シーズン':'当日')+x.day+'</span></span>';
+   h+='<span style="text-align:right;flex-shrink:0;">'+(x.champion?'👑 ':'')+'<b style="font-size:18px;">'+x.rank+'位</b><br><span class="mut" style="font-size:11px;">/'+x.total+'人</span></span></div>';
+  }
+  h+='</div>';
+ }
+ h+='<div class="card"><div style="font-weight:800;font-size:17px;margin-bottom:6px;">対戦履歴</div>';
  var sel=[];
  for(var q=0;q<rows.length;q++){
   if(histFilter==='all'||(histFilter==='r30'&&sel.length<30)||rows[q].tournament===histFilter){
@@ -654,7 +670,12 @@ document.addEventListener('click',async function(ev){
  var act=el.getAttribute('data-act');
  busy=true;
  try{
-  if(act==='forgot'){
+  if(act==='copydsc'){
+   var cv=el.getAttribute('data-v');
+   try{await navigator.clipboard.writeText(cv);toastMsg('@'+cv+' をコピーしました');}
+   catch(ec){prompt('Discordアカウント名',cv);}
+  }
+  else if(act==='forgot'){
    showModal('<div style="font-weight:800;font-size:16px;">パスワードを忘れた方</div><div style="margin-top:10px;font-size:14px;line-height:1.7;">大会会場のスタッフ（主催）に、<b>ニックネーム</b>を伝えてください。仮パスワードを発行します。<br><br>仮パスワードでログインしたあと、ホーム画面下の「パスワード変更」から好きなパスワードに変更できます。<br><span class="mut">レートや称号、コインはそのまま引き継がれます。</span></div><button class="btn gray" data-act="mclose">閉じる</button>');
   }
   else if(act==='tab-login'){authMode='login';renderAuth();}
