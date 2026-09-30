@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#26307a"/><stop offset=".55" stop-color="#151a3a"/><stop offset="1" stop-color="#0b0e1c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".72" cy=".28" r=".6">
+      <stop offset="0" stop-color="#3b5bfd" stop-opacity=".45"/><stop offset="1" stop-color="#3b5bfd" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5a78ff"/><stop offset="1" stop-color="#2a3fc4"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6e394"/><stop offset=".5" stop-color="#e8c96a"/><stop offset="1" stop-color="#b18a2c"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#b18a2c"/><stop offset="1" stop-color="#ffd75e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  
+  <g transform="translate(0.0,0.0) scale(1.0000)">
+    <!-- 奥のカード -->
+    <g transform="rotate(-14 512 540)">
+      <rect x="250" y="250" width="420" height="580" rx="44" fill="url(#blue)"/>
+      <rect x="276" y="276" width="368" height="528" rx="30" fill="none" stroke="#9fb2ff" stroke-opacity=".45" stroke-width="6"/>
+    </g>
+    <!-- 手前のカード -->
+    <g transform="rotate(8 540 540)">
+      <rect x="330" y="230" width="440" height="610" rx="46" fill="url(#gold)"/>
+      <rect x="344" y="244" width="412" height="582" rx="36" fill="#141a33"/>
+      <rect x="368" y="268" width="364" height="534" rx="26" fill="none" stroke="#e8c96a" stroke-opacity=".35" stroke-width="4"/>
+    </g>
+    <!-- レートの上昇線 -->
+    <polyline points="250,640 380,540 470,590 610,420 720,470 820,300" fill="none" stroke="#1a1f33" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="250,640 380,540 470,590 610,420 720,470 820,300" fill="none" stroke="url(#line)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="380" cy="540" r="22" fill="#ffe9a8"/>
+    <circle cx="610" cy="420" r="22" fill="#ffe9a8"/>
+    <!-- 矢印 -->
+    <polygon points="820,300 700,318 800,418" fill="#ffd75e" stroke="#1a1f33" stroke-width="12" stroke-linejoin="round"/>
+  </g>
+  
+</svg>

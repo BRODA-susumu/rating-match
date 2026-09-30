@@ -3,7 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>レーティング対戦</title>
+<title>TCGレーティングツール</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/app-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/app-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/app-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCGレート">
+<meta name="application-name" content="TCGレート">
+<meta name="theme-color" content="#0f1220">
 <style>
 :root{color-scheme:dark;}
 body{margin:0;font-family:system-ui,-apple-system,'Hiragino Sans',sans-serif;background:#0f1220;color:#f2f4ff;}
@@ -227,7 +237,7 @@ function render(){
  renderHome();
 }
 function renderAuth(){
- var h='<div class="wrap"><div class="card center"><div style="font-size:22px;font-weight:800;">レーティング対戦</div><div class="mut">大会マッチングシステム</div></div>';
+ var h='<div class="wrap"><div class="card center"><img src="icons/app-192.png" alt="" style="width:72px;height:72px;border-radius:16px;display:block;margin:4px auto 10px;"><div style="font-size:22px;font-weight:800;">TCGレーティングツール</div><div class="mut">大会マッチングシステム</div></div>';
  h+='<div class="card"><div style="display:flex;gap:8px;">';
  h+='<button class="btn '+(authMode==='login'?'':'gray')+'" style="margin-top:0;" data-act="tab-login">ログイン</button>';
  h+='<button class="btn '+(authMode==='register'?'':'gray')+'" style="margin-top:0;" data-act="tab-register">新規登録</button></div>';

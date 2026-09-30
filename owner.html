@@ -3,7 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>大管理者コンソール</title>
+<title>コンソール - TCGレーティングツール</title>
+<link rel="manifest" href="manifest-admin.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/admin-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/admin-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/admin-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TCG管理">
+<meta name="application-name" content="TCG管理">
+<meta name="theme-color" content="#0f1220">
 <style>
 :root{color-scheme:dark;}
 body{margin:0;font-family:system-ui,-apple-system,'Hiragino Sans',sans-serif;background:#0f1220;color:#f2f4ff;}
@@ -52,7 +62,7 @@ function fmtDate(iso){if(!iso){return '';}var d=new Date(iso);return (d.getMonth
 async function boot(){var s=await sb.auth.getSession();if(s.data.session){await load();}else{renderAuth();}}
 sb.auth.onAuthStateChange(function(ev){if(ev==='SIGNED_OUT'){O=null;renderAuth();}});
 function renderAuth(){
- app().innerHTML='<div class="wrap"><div class="card"><div style="font-size:20px;font-weight:800;">大管理者コンソール</div><div class="mut">Rating Match System</div>'+
+ app().innerHTML='<div class="wrap"><div class="card"><div style="font-size:20px;font-weight:800;">大管理者コンソール</div><div class="mut">TCGレーティングツール</div>'+
  '<input id="email" type="email" placeholder="メールアドレス"><input id="pass" type="password" placeholder="パスワード">'+
  '<button class="btn" data-act="login">ログイン</button></div></div>';
 }
